@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { BookmarkPlus, Copy, Plus, Repeat, Search, Star, Trash2 } from 'lucide-react'
-import { Bar, Btn, Card, DateNav, Field, Header, Num, Sheet, Tabs, cx, inputCls, useRun } from '../components/ui'
+import { ask, askText, Bar, Btn, Card, DateNav, Field, Header, Num, Sheet, Tabs, cx, inputCls, useRun } from '../components/ui'
 import { nutritionStats, round, sumMacros } from '../lib/calc'
 import { addDays, fmt, today } from '../lib/dates'
 import { uid } from '../lib/seed'
@@ -35,9 +35,9 @@ export default function Food() {
   const copyEntries = (src: FoodEntry[], toDate: string, meal?: Meal) =>
     src.map(e => ({ ...e, id: uid(), date: toDate, meal: meal ?? e.meal, created_at: undefined }))
   const copyYesterday = () => run(() => save('food_entries', copyEntries(yesterday, date)), `Copied ${yesterday.length} item${yesterday.length === 1 ? '' : 's'} from yesterday`)
-  const saveMeal = (meal: Meal, label: string) => {
+  const saveMeal = async (meal: Meal, label: string) => {
     const items = entries.filter(e => e.meal === meal)
-    const name = window.prompt('Name this saved meal', `${label} — ${fmt(date)}`)
+    const name = await askText('Name this saved meal', `${label} — ${fmt(date)}`)
     if (!name?.trim()) return
     const t = sumMacros(items)
     const mealItems: MealItem[] = items.map(({ name, calories, protein_g, carbs_g, fat_g, servings }) => ({ name, calories, protein_g, carbs_g, fat_g, servings }))
@@ -192,7 +192,7 @@ function AddSheet({ meal, date, onClose }: { meal: Meal | null; date: string; on
                     onClick={() => run(() => save('saved_foods', real ? { ...s, is_favorite: !s.is_favorite } : { ...s, id: uid(), is_favorite: true }))}>
                     <Star size={18} className={s.is_favorite ? 'text-warn fill-warn' : 'text-mute'} />
                   </button>
-                  {real && <button aria-label={`Delete saved food ${s.name}`} className="h-11 w-9 grid place-items-center text-mute" onClick={() => window.confirm(`Remove ${s.name} from your saved foods? Logged entries are kept.`) && run(() => remove('saved_foods', s.id))}><Trash2 size={16} /></button>}
+                  {real && <button aria-label={`Delete saved food ${s.name}`} className="h-11 w-9 grid place-items-center text-mute" onClick={async () => (await ask(`Remove ${s.name} from your saved foods? Logged entries are kept.`, 'Remove')) && run(() => remove('saved_foods', s.id))}><Trash2 size={16} /></button>}
                 </div>
               )
             })}
@@ -204,7 +204,7 @@ function AddSheet({ meal, date, onClose }: { meal: Meal | null; date: string; on
               <div className="text-sm truncate">{s.name}</div>
               <div className="text-xs text-mute tnum">{s.items.length} item{s.items.length === 1 ? '' : 's'} · {macroLine(s)}</div>
             </button>
-            <button aria-label={`Delete saved meal ${s.name}`} className="h-11 w-9 grid place-items-center text-mute" onClick={() => window.confirm(`Delete saved meal ${s.name}?`) && run(() => remove('saved_foods', s.id))}><Trash2 size={16} /></button>
+            <button aria-label={`Delete saved meal ${s.name}`} className="h-11 w-9 grid place-items-center text-mute" onClick={async () => (await ask(`Delete saved meal ${s.name}?`, 'Delete')) && run(() => remove('saved_foods', s.id))}><Trash2 size={16} /></button>
           </div>
         )))}
         {tab === 'new' && (

@@ -8,6 +8,7 @@ import { fmt, fmtLong, relLabel, today } from '../lib/dates'
 import { REMINDER_COPY, dueReminders } from '../lib/reminders'
 import { dayTotals, exercisesFor, latestWeight, noteFor, photosOn, sessionFor, setsFor, templateFor } from '../lib/select'
 import { useStore } from '../lib/store'
+import { ARTIFACT } from '../lib/claudeBackend'
 
 function useNow() {
   const [now, setNow] = useState(new Date())
@@ -83,7 +84,7 @@ export default function Home() {
 
       {backend.mode === 'local' && (
         <p className="mb-3 rounded-xl border border-warn/40 bg-warn/10 text-warn text-xs px-3 py-2">
-          Local mode: Supabase isn't configured, so data is stored only in this browser on this device.
+          {ARTIFACT ? "Saved data isn't available in this view, so entries are kept only in this browser and may not last. Open the app from your own Claude account to save properly." : "Local mode: Supabase isn't configured, so data is stored only in this browser on this device."}
         </p>
       )}
 

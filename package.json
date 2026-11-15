@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "build:artifact": "VITE_TARGET=artifact vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:smoke": "node scripts/smoke.mjs"
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.16",
+    "@types/node": "^26.6.6",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.0.0",

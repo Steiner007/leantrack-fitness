@@ -2,10 +2,16 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const artifact = process.env.VITE_TARGET === 'artifact'
+
 export default defineConfig({
+  // The hosted Claude-artifact build uses relative asset paths and no service worker.
+  base: artifact ? './' : '/',
+  build: { outDir: artifact ? 'dist-artifact' : 'dist' },
   plugins: [
     react(),
     VitePWA({
+      disable: artifact,
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {

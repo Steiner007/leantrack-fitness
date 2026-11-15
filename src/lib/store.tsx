@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { localBackend, supabase, supabaseBackend, supabaseConfigured, type Backend } from './backend'
+import { ARTIFACT, claudeBackend } from './claudeBackend'
 import { buildSeed } from './seed'
 import { TABLES, emptyData, type Data, type Profile, type Program, type TableName, type Tables } from './types'
 
@@ -14,6 +15,8 @@ interface Store {
   save<T extends TableName>(table: T, rows: Tables[T] | Tables[T][]): Promise<void>
   remove(table: TableName, ids: string | string[]): Promise<void>
   signOut(): Promise<void>
+  /** Re-reads everything from the backend (re-seeding if it is now empty). */
+  reload(): void
 }
 const Ctx = createContext<Store | null>(null)
 export const useStore = () => {
@@ -54,8 +57,11 @@ export function StoreProvider({ children, authScreen, recoveryScreen }: {
       let d = await b.loadAll()
       if (!d.profiles.length) {
         // First sign-in: create the profile, program and preloaded routine.
+        // Anything already there is left over from a first run that was interrupted: clear it so the routine isn't duplicated.
+        for (const t of [...TABLES].reverse()) await b.remove(t, (d[t] as { id: string }[]).map(r => r.id))
         const seed = buildSeed()
-        for (const t of TABLES) await b.upsert(t, seed[t])
+        // The profile is written last, so its presence means seeding finished.
+        for (const t of [...TABLES.filter(x => x !== 'profiles'), 'profiles' as const]) await b.upsert(t, seed[t])
         d = await b.loadAll()
       }
       setData(d)
@@ -69,6 +75,7 @@ export function StoreProvider({ children, authScreen, recoveryScreen }: {
   }, [])
 
   useEffect(() => {
+    if (ARTIFACT) { void claudeBackend().catch(() => null).then(b => load(b ?? localBackend())); return }
     if (!supabaseConfigured || !supabase) { void load(localBackend()); return }
     const apply = (userId: string | null, mail: string | null) => {
       if (userId === userRef.current) return
@@ -107,8 +114,9 @@ export function StoreProvider({ children, authScreen, recoveryScreen }: {
         setData(d => ({ ...d, [table]: (d[table] as { id: string }[]).filter(r => !list.includes(r.id)) }))
       },
       async signOut() { await supabase?.auth.signOut() },
+      reload() { void load(backend) },
     }
-  }, [backend, phase, data, email, online])
+  }, [backend, phase, data, email, online, load])
 
   if (recovering && supabaseConfigured) return <>{recoveryScreen(() => setRecovering(false))}</>
   if (phase === 'signed-out') return <>{authScreen}</>

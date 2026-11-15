@@ -1,7 +1,7 @@
 import { Component, type ReactNode } from 'react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Dumbbell, Home as HomeIcon, LineChart, User, Utensils, WifiOff } from 'lucide-react'
-import { ToastProvider, cx } from './components/ui'
+import { Dialogs, ToastProvider, cx } from './components/ui'
 import { StoreProvider, useStore } from './lib/store'
 import { AuthScreen, RecoveryScreen } from './pages/Auth'
 import Home from './pages/Home'
@@ -48,7 +48,7 @@ function Shell() {
     <div className="mx-auto max-w-lg min-h-full pb-28 px-4 safe-t">
       {!online && (
         <div role="status" className="mt-3 flex items-center gap-2 rounded-xl bg-warn/15 border border-warn/40 text-warn text-xs px-3 py-2">
-          <WifiOff size={14} /> You're offline. {backend.mode === 'supabase' ? "You can look around, but changes can't be saved until you reconnect." : 'Local data still works.'}
+          <WifiOff size={14} /> You're offline. {backend.mode !== 'local' ? "You can look around, but changes can't be saved until you reconnect." : 'Local data still works.'}
         </div>
       )}
       <Boundary k={loc.pathname}>
@@ -88,6 +88,7 @@ export default function App() {
     <ToastProvider>
       <StoreProvider authScreen={<AuthScreen />} recoveryScreen={done => <RecoveryScreen done={done} />}>
         <Shell />
+        <Dialogs />
       </StoreProvider>
     </ToastProvider>
   )

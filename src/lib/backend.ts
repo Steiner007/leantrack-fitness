@@ -9,12 +9,13 @@ export const supabase: SupabaseClient | null = supabaseConfigured ? createClient
 export const BUCKET = 'progress-photos'
 
 export interface Backend {
-  mode: 'supabase' | 'local'
+  mode: 'supabase' | 'local' | 'claude'
   userId: string
   loadAll(): Promise<Data>
   upsert(table: TableName, rows: object[]): Promise<void>
   remove(table: TableName, ids: string[]): Promise<void>
-  uploadPhoto(path: string, blob: Blob): Promise<void>
+  /** Stores the photo and returns the path/id to keep in the photo row (may differ from the suggested path). */
+  uploadPhoto(path: string, blob: Blob): Promise<string>
   photoUrl(path: string): Promise<string>
   photoBlob(path: string): Promise<Blob>
   removePhotos(paths: string[]): Promise<void>
@@ -58,6 +59,7 @@ export function supabaseBackend(userId: string): Backend {
     async uploadPhoto(path, blob) {
       const { error } = await sb.storage.from(BUCKET).upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert: false })
       fail('Photo upload failed', error)
+      return path
     },
     async photoUrl(path) {
       const hit = urlCache.get(path)
@@ -139,6 +141,7 @@ export function localBackend(): Backend {
       // Stored as bytes + type: some browsers can't persist Blob objects in IndexedDB reliably.
       const buf = await blob.arrayBuffer()
       await tx('photos', 'readwrite', s => s.put({ buf, type: blob.type || 'image/jpeg' }, path))
+      return path
     },
     async photoBlob(path) {
       const rec = (await tx<unknown>('photos', 'readonly', s => s.get(path))) as { buf: ArrayBuffer; type: string } | undefined

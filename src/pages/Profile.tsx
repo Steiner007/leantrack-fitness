@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { CalendarDays, ChevronRight, ClipboardCheck, Download, ListChecks, LogOut, Trash2 } from 'lucide-react'
 import JSZip from 'jszip'
 import { Btn, Card, Field, Header, Num, Sheet, Tabs, Toggle, inputCls, useRun, useToast } from '../components/ui'
@@ -7,6 +7,7 @@ import { PHASES, programPos } from '../lib/calc'
 import { DAY_NAMES, addDays, fmt, today } from '../lib/dates'
 import { REMINDER_DEFAULTS } from '../lib/seed'
 import { useStore } from '../lib/store'
+import { ARTIFACT, saveFile } from '../lib/claudeBackend'
 import { TABLES, type Profile as P, type Reminder } from '../lib/types'
 
 type TextKey = 'sex' | 'age_range' | 'activity_level' | 'experience' | 'gym' | 'workout_duration' | 'training_schedule' | 'main_goal'
@@ -33,7 +34,8 @@ const LinkRow = ({ to, icon: Icon, label }: { to: string; icon: typeof CalendarD
 )
 
 export default function Profile() {
-  const { data, profile, program, backend, email, save, signOut } = useStore()
+  const { data, profile, program, backend, email, save, signOut, reload } = useStore()
+  const nav = useNavigate()
   const run = useRun()
   const toast = useToast()
   const [p, setP] = useState<P>(profile)
@@ -64,18 +66,12 @@ export default function Profile() {
   const reminder = (kind: Reminder['kind']) => data.reminder_preferences.find(r => r.kind === kind)
   const saveReminder = (r: Reminder, patch: Partial<Reminder>) => run(() => save('reminder_preferences', { ...r, ...patch }))
 
-  function download(blob: Blob, name: string) {
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = name
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(a.href), 10000)
-  }
+  const download = saveFile
   const exportJson = () => JSON.stringify({ app: 'LeanTrack', exported_at: new Date().toISOString(), ...Object.fromEntries(TABLES.map(t => [t, data[t]])) }, null, 2)
   async function exportData(withPhotos: boolean) {
     setBusy(withPhotos ? 'zip' : 'json')
     try {
-      if (!withPhotos) download(new Blob([exportJson()], { type: 'application/json' }), `leantrack-${today()}.json`)
+      if (!withPhotos) await download(new Blob([exportJson()], { type: 'application/json' }), `leantrack-${today()}.json`)
       else {
         const zip = new JSZip()
         zip.file('leantrack-data.json', exportJson())
@@ -83,7 +79,7 @@ export default function Profile() {
         for (const ph of data.progress_photos) {
           try { zip.file(`photos/${ph.date}_${ph.pose}_${ph.id.slice(0, 8)}.jpg`, await backend.photoBlob(ph.storage_path)) } catch { missed++ }
         }
-        download(await zip.generateAsync({ type: 'blob' }), `leantrack-${today()}.zip`)
+        await download(await zip.generateAsync({ type: 'blob' }), `leantrack-${today()}.zip`)
         if (missed) toast(`${missed} photo${missed === 1 ? '' : 's'} could not be downloaded and ${missed === 1 ? 'is' : 'are'} missing from the export.`, 'err')
       }
     } catch (e) {
@@ -95,12 +91,12 @@ export default function Profile() {
     setBusy('delete')
     const ok = await run(() => backend.deleteEverything(data.progress_photos.map(ph => ph.storage_path)))
     setBusy(null)
-    if (ok) window.location.assign('/')
+    if (ok) { setConfirmDelete(false); nav('/'); reload() }
   }
 
   return (
     <div>
-      <Header title="Profile" sub={backend.mode === 'supabase' ? email ?? undefined : 'Local mode — data stays on this device'} />
+      <Header title="Profile" sub={backend.mode === 'supabase' ? email ?? undefined : backend.mode === 'claude' ? 'Saved to your Claude account' : 'Local mode — data stays on this device'} />
 
       <Card className="mb-3 !py-1">
         <LinkRow to="/checkin" icon={ClipboardCheck} label="Weekly check-in" />
@@ -202,6 +198,7 @@ export default function Profile() {
         <p className="text-xs text-mute my-3">
           {backend.mode === 'supabase'
             ? 'Photos are kept in a private bucket and shown through links that expire after an hour.'
+            : backend.mode === 'claude' ? 'Your entries are saved to your private space in this Claude artifact. Photos are stored with the artifact itself, so keep it unshared.'
             : 'Local mode: everything is stored in this browser only. Export regularly; clearing site data erases it.'}
         </p>
         {backend.mode === 'supabase' && <Btn full className="mb-2" onClick={() => signOut()}><LogOut size={16} /> Sign out</Btn>}
@@ -209,7 +206,7 @@ export default function Profile() {
       </Section>
 
       <Section title="Install on your phone">
-        <p className="text-sm leading-relaxed">iPhone: open this site in Safari, tap Share, then "Add to Home Screen". Android: open it in Chrome, tap the menu, then "Install app".</p>
+        <p className="text-sm leading-relaxed">{ARTIFACT && 'This hosted version runs inside Claude and cannot be installed; the deployed version can. '}iPhone: open this site in Safari, tap Share, then "Add to Home Screen". Android: open it in Chrome, tap the menu, then "Install app".</p>
       </Section>
 
       {dirty && (

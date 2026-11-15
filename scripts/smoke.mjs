@@ -13,6 +13,8 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
 import { chromium } from 'playwright-core'
 
+// SMOKE_TARGET=artifact tests the Claude-hosted build (dist-artifact) against a stand-in for Claude's storage.
+const ART = process.env.SMOKE_TARGET === 'artifact'
 const PORT = 4179
 const BASE = `http://localhost:${PORT}`
 const exe = process.env.CHROME_PATH || ['/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'].find(existsSync)
@@ -53,9 +55,13 @@ const assert = (cond, msg) => { if (!cond) throw new Error(msg) }
 const toast = text => page.getByRole('status').filter({ hasText: text }).first().waitFor({ timeout: 5000 })
 const text = t => page.getByText(t, { exact: false }).first().waitFor({ timeout: 5000 })
 const reload = async () => { await page.reload(); await page.getByRole('navigation', { name: 'Main' }).waitFor() }
-const go = async path => { await page.goto(BASE + path); await page.getByRole('navigation', { name: 'Main' }).waitFor() }
+const go = async path => {
+  if (ART) { await page.goto(`${BASE}/#${path}`); await page.reload() } else await page.goto(BASE + path)
+  await page.getByRole('navigation', { name: 'Main' }).waitFor()
+}
+const confirmDlg = name => page.getByRole('alertdialog').getByRole('button', { name }).click()
 
-const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' })
+const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore', env: { ...process.env, ...(ART ? { VITE_TARGET: 'artifact' } : {}) } })
 const stop = () => { try { server.kill() } catch {} }
 process.on('exit', stop)
 for (let i = 0; i < 60; i++) { try { if ((await fetch(BASE)).ok) break } catch {} await new Promise(r => setTimeout(r, 250)) }
@@ -66,7 +72,54 @@ page = await ctx.newPage()
 const errors = []
 page.on('pageerror', e => errors.push(e.message))
 page.on('console', m => m.type() === 'error' && errors.push(m.text()))
-page.on('dialog', d => d.accept(d.type() === 'prompt' ? 'Test meal' : undefined))
+page.on('dialog', d => { errors.push('native dialog used: ' + d.message()); d.dismiss() })
+if (ART) {
+  // Stand-in for Claude's artifact runtime: a document store, asset store, viewer id and download prompt, kept in localStorage.
+  await page.addInitScript(() => {
+    const load = k => JSON.parse(localStorage.getItem(k) || '{}'), store = (k, v) => localStorage.setItem(k, JSON.stringify(v))
+    const tick = v => new Promise(r => setTimeout(() => r(v), 2))
+    const okPath = (p, even) => { const n = p.split('/'); if ((n.length % 2 === 0) !== even || n.some(x => !/^[\w\-.~:@+]+$/.test(x))) throw new TypeError('bad path ' + p) }
+    const query = (path, f = {}) => ({
+      path,
+      where: (field, op, v) => { if (op !== '>') throw new Error('mock: unsupported op'); return query(path, { ...f, gt: [field, v] }) },
+      orderBy: field => query(path, { ...f, order: field }),
+      limit: n => { if (n < 1 || n > 1000) throw { code: 'invalid_argument' }; return query(path, { ...f, limit: n }) },
+      doc: id => doc(path + '/' + id),
+      get: async () => {
+        await tick()
+        let rows = Object.entries(load('mockdb')).filter(([k]) => k.startsWith(path + '/') && !k.slice(path.length + 1).includes('/')).map(([k, v]) => ({ id: k.split('/').pop(), v }))
+        if (f.gt) rows = rows.filter(r => r.v[f.gt[0]] > f.gt[1])
+        rows.sort((a, b) => (f.order ? (a.v[f.order] < b.v[f.order] ? -1 : 1) : a.id < b.id ? -1 : 1))
+        return { docs: rows.slice(0, f.limit ?? 1000).map(r => ({ id: r.id, exists: true, data: () => Object.freeze(r.v) })) }
+      },
+    })
+    const doc = path => {
+      okPath(path, true)
+      return {
+        path,
+        set: async body => { await tick(); if (JSON.stringify(body) !== JSON.stringify(JSON.parse(JSON.stringify(body))) || Object.values(body).some(v => v === undefined)) throw { code: 'invalid_argument', message: 'undefined in body' }; const d = load('mockdb'); d[path] = body; store('mockdb', d) },
+        delete: async () => { await tick(); const d = load('mockdb'); delete d[path]; store('mockdb', d) },
+        collection: p => { okPath(path + '/' + p, false); return query(path + '/' + p) },
+      }
+    }
+    const caps = {
+      db: { doc },
+      user: { id: async () => 'u_test' },
+      assets: {
+        upload: blob => new Promise(res => { const r = new FileReader(); r.onload = () => { const id = Math.random().toString(16).slice(2).padEnd(32, '0'); const a = load('mockassets'); a[id] = r.result; store('mockassets', a); res({ id, url: '/_blob/' + id }) }; r.readAsDataURL(blob) }),
+        delete: async id => { const a = load('mockassets'); const had = id in a; delete a[id]; store('mockassets', a); return { deleted: had } },
+      },
+      downloads: { save: async ({ filename, data }) => { (window.__saved ??= []).push({ filename, text: typeof data === 'string' ? data : await data.text() }); return { status: 'saved' } } },
+    }
+    window.claude = { use: name => new Promise(r => setTimeout(() => r(caps[name] ?? null), 30)) }
+  })
+  await page.route('**/_blob/*', async route => {
+    const id = route.request().url().split('/').pop()
+    const d = await page.evaluate(i => JSON.parse(localStorage.getItem('mockassets') || '{}')[i], id)
+    if (!d) return route.fulfill({ status: 404 })
+    route.fulfill({ contentType: 'image/jpeg', body: Buffer.from(d.split(',')[1], 'base64') })
+  })
+}
 
 console.log(`LeanTrack smoke test (${exe})`)
 
@@ -156,6 +209,7 @@ await step('workout: rest timer starts when a set is checked off', async () => {
   await page.getByRole('timer').waitFor()
   await page.getByRole('button', { name: 'Stop rest timer' }).click()
   await page.getByRole('button', { name: 'Delete this workout' }).click()
+  await confirmDlg('Delete')
   await toast('Workout deleted')
 })
 
@@ -240,6 +294,8 @@ await step('food: search saved foods, adjust portion, save meal, repeat', async 
   await toast('Food updated')
   await text('1,663 left of 2,150') // 2150 - 300 - 187.5 -> rounds to 1,663
   await page.getByRole('button', { name: 'Save Breakfast as a meal' }).click()
+  await page.getByRole('alertdialog').getByRole('textbox').fill('Test meal')
+  await confirmDlg('Save')
   await toast('Meal saved')
   await page.getByRole('button', { name: 'Repeat day' }).click()
   await page.getByRole('dialog').getByRole('button').nth(1).click() // first offered day = tomorrow
@@ -284,6 +340,7 @@ await step('photos: replace and delete', async () => {
   const [w] = await loaded('Side photo'); assert(w === 1200, 'replacement not shown')
   assert((await page.locator('img[alt="Side photo"]').count()) === 1, 'old photo still present after replace')
   await page.getByRole('button', { name: 'Delete' }).nth(1).click()
+  await confirmDlg('Delete')
   await toast('Photo deleted')
   await reload()
   assert((await page.locator('img[alt="Side photo"]').count()) === 0, 'deleted photo came back')
@@ -369,16 +426,27 @@ await step('reminders are optional and appear in-app when enabled', async () => 
 
 await step('export downloads a JSON file with the saved data', async () => {
   await go('/profile')
-  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Data (JSON)' }).click()])
-  const stream = await dl.createReadStream(); let s = ''
-  for await (const c of stream) s += c
-  const j = JSON.parse(s)
+  let json, zipName
+  if (ART) {
+    await page.getByRole('button', { name: 'Data (JSON)' }).click()
+    await page.waitForFunction(() => window.__saved?.length === 1)
+    await page.getByRole('button', { name: 'Data + photos' }).click()
+    await page.waitForFunction(() => window.__saved?.length === 2)
+    const saved = await page.evaluate(() => window.__saved)
+    json = saved[0].text; zipName = saved[1].filename
+  } else {
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Data (JSON)' }).click()])
+    json = ''
+    for await (const c of await dl.createReadStream()) json += c
+    const [zip] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Data + photos' }).click()])
+    zipName = zip.suggestedFilename()
+  }
+  const j = JSON.parse(json)
   assert(j.weight_entries.length === 2 && j.exercise_sets.length > 10 && j.progress_photos.length === 2 && j.food_entries.length >= 4, 'export is missing data')
-  const [zip] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Data + photos' }).click()])
-  assert(zip.suggestedFilename().endsWith('.zip'), 'photo export should be a zip')
+  assert(zipName.endsWith('.zip'), 'photo export should be a zip')
 })
 
-await step('PWA manifest and service worker are served', async () => {
+if (!ART) await step('PWA manifest and service worker are served', async () => {
   const m = await (await fetch(`${BASE}/manifest.webmanifest`)).json()
   assert(m.display === 'standalone' && m.icons.length >= 2 && m.name === 'LeanTrack', 'bad manifest')
   assert((await fetch(`${BASE}/sw.js`)).ok, 'service worker missing')
@@ -405,9 +473,13 @@ await step('delete all data wipes everything', async () => {
   await page.getByRole('button', { name: /Delete all data/ }).click()
   await page.getByRole('dialog').locator('input').fill('DELETE')
   await page.getByRole('button', { name: 'Permanently delete' }).click()
-  await page.waitForURL(BASE + '/')
   await page.getByRole('navigation', { name: 'Main' }).waitFor()
   await text('No entries yet'); await text('target 2,150')
+  if (ART) {
+    const left = await page.evaluate(() => [Object.keys(JSON.parse(localStorage.mockassets || '{}')).length, Object.keys(JSON.parse(localStorage.mockdb)).length])
+    assert(left[0] === 0, 'photos were not deleted from storage')
+    assert(left[1] === 47, `expected a fresh 47-row seed after wipe, found ${left[1]} rows`)
+  }
 })
 
 await step('no JavaScript errors were logged', async () => {

@@ -199,3 +199,30 @@ export function useRun() {
     }
   }, [toast])
 }
+
+// ---- In-page confirm / text prompts (browser dialogs are unavailable in embedded views) ----
+type Dlg = { message: string; confirm: string; text?: string; resolve: (v: boolean | string | null) => void }
+let openDlg: (d: Dlg) => void = d => d.resolve(d.text == null ? false : null)
+export const ask = (message: string, confirm = 'OK') => new Promise<boolean>(res => openDlg({ message, confirm, resolve: v => res(v === true) }))
+export const askText = (message: string, initial = '') => new Promise<string | null>(res => openDlg({ message, confirm: 'Save', text: initial, resolve: v => res(typeof v === 'string' ? v : null) }))
+export function Dialogs() {
+  const [d, setD] = useState<Dlg | null>(null)
+  const [text, setText] = useState('')
+  useEffect(() => { openDlg = x => { setText(x.text ?? ''); setD(x) }; return () => { openDlg = x => x.resolve(x.text == null ? false : null) } }, [])
+  if (!d) return null
+  const close = (v: boolean | string | null) => { d.resolve(v); setD(null) }
+  const isText = d.text != null
+  return (
+    <div className="fixed inset-0 z-[60] grid place-items-center p-6" role="alertdialog" aria-modal="true" aria-label={d.message}>
+      <div className="absolute inset-0 bg-black/70" onClick={() => close(isText ? null : false)} />
+      <div className="rise relative w-full max-w-sm rounded-2xl bg-card border border-line p-4">
+        <p className="text-sm leading-relaxed mb-3">{d.message}</p>
+        {isText && <input autoFocus aria-label={d.message} className={inputCls + ' mb-3'} value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && text.trim() && close(text)} />}
+        <div className="flex gap-2">
+          <Btn className="flex-1" onClick={() => close(isText ? null : false)}>Cancel</Btn>
+          <Btn className="flex-1" variant={isText ? 'primary' : 'danger'} disabled={isText && !text.trim()} onClick={() => close(isText ? text : true)}>{d.confirm}</Btn>
+        </div>
+      </div>
+    </div>
+  )
+}

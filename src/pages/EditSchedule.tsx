@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
-import { Card, Header, Num, inputCls, useRun } from '../components/ui'
+import { ask, Card, Header, Num, inputCls, useRun } from '../components/ui'
 import { DAY_NAMES } from '../lib/dates'
 import { uid } from '../lib/seed'
 import { exercisesFor } from '../lib/select'
@@ -74,7 +74,7 @@ export default function EditSchedule() {
               onClick={() => run(() => save('exercises', { id: uid(), template_id: t.id, name: 'New exercise', sets: 3, rep_low: 10, rep_high: 12, unit: 'reps', per_side: false, optional: false, instructions: null, position: (list[list.length - 1]?.position ?? -1) + 1, archived: false }))}>
               <Plus size={16} /> Add exercise
             </button>
-            <button className="mt-1 w-full min-h-[40px] text-xs text-mute" onClick={() => window.confirm(`Remove ${t.name} from ${DAY_NAMES[t.weekday]}? Logged history is kept.`) && saveT(t, { archived: true })}>Remove this workout day</button>
+            <button className="mt-1 w-full min-h-[40px] text-xs text-mute" onClick={async () => (await ask(`Remove ${t.name} from ${DAY_NAMES[t.weekday]}? Logged history is kept.`, 'Remove')) && saveT(t, { archived: true })}>Remove this workout day</button>
           </Card>
         )
       })}

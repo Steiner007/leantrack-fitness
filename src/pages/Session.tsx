@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Check, Info, Minus, MoreVertical, Plus, Timer, Trophy, X } from 'lucide-react'
-import { Btn, Card, Empty, Field, Header, Num, Sheet, cx, inputCls, useRun, useToast } from '../components/ui'
+import { ask, Btn, Card, Empty, Field, Header, Num, Sheet, cx, inputCls, useRun, useToast } from '../components/ui'
 import { isPR, lowerIsBetter, personalBests, targetText } from '../lib/calc'
 import { fmt, fmtLong, today } from '../lib/dates'
 import { uid } from '../lib/seed'
@@ -15,7 +15,7 @@ const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, 
 function useRestTimer() {
   const [end, setEnd] = useState<number | null>(null)
   const [left, setLeft] = useState(0)
-  const [len, setLen] = useState(() => Number(localStorage.getItem(REST_KEY)) || 90)
+  const [len, setLen] = useState(() => { try { return Number(localStorage.getItem(REST_KEY)) || 90 } catch { return 90 } })
   useEffect(() => {
     if (end == null) return
     const tick = () => {
@@ -32,7 +32,7 @@ function useRestTimer() {
     start: (secs = len) => setEnd(Date.now() + secs * 1000),
     add: (secs: number) => setEnd(e => (e == null ? e : e + secs * 1000)),
     stop: () => setEnd(null),
-    setLen: (n: number) => { setLen(n); localStorage.setItem(REST_KEY, String(n)) },
+    setLen: (n: number) => { setLen(n); try { localStorage.setItem(REST_KEY, String(n)) } catch { /* storage unavailable */ } },
   }
 }
 
@@ -120,7 +120,7 @@ export default function SessionPage() {
     if (ok) { timer.stop(); nav('/') }
   }
   async function deleteSession() {
-    if (!window.confirm('Delete this logged workout and all its sets?')) return
+    if (!(await ask('Delete this logged workout and all its sets?', 'Delete'))) return
     const ok = await run(async () => { await remove('exercise_sets', sets.map(s => s.id)); await remove('workout_sessions', session!.id) }, 'Workout deleted')
     if (ok) nav('/workouts')
   }

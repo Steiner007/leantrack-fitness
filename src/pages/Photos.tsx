@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Camera, Columns2, ImagePlus, Trash2 } from 'lucide-react'
 import { MonthGrid, PhotoImg } from '../components/photo'
-import { Btn, Card, DateNav, Header, inputCls, useRun, useToast } from '../components/ui'
+import { Btn, Card, DateNav, Header, ask, inputCls, useRun, useToast } from '../components/ui'
+import { ARTIFACT } from '../lib/claudeBackend'
 import { showWeight } from '../lib/calc'
 import { fmtLong, today } from '../lib/dates'
 import { compressImage } from '../lib/photos'
@@ -26,8 +27,7 @@ export function usePhotoActions(date: string) {
     setBusy(pose)
     await run(async () => {
       const { blob, width, height } = await compressImage(file)
-      const path = `${backend.userId}/${date}/${pose}-${uid()}.jpg`
-      await backend.uploadPhoto(path, blob)
+      const path = await backend.uploadPhoto(`${backend.userId}/${date}/${pose}-${uid()}.jpg`, blob)
       try {
         await save('progress_photos', { id: uid(), date, pose, storage_path: path, width, height })
       } catch (e) {
@@ -42,7 +42,7 @@ export function usePhotoActions(date: string) {
     setBusy(null)
   }
   async function del(p: Photo) {
-    if (!window.confirm('Delete this photo permanently?')) return
+    if (!(await ask('Delete this photo permanently?', 'Delete'))) return
     await run(async () => { await backend.removePhotos([p.storage_path]); await remove('progress_photos', p.id) }, 'Photo deleted')
   }
   return { add, del, busy }
@@ -55,10 +55,10 @@ function Pickers({ onFile, label, compact }: { onFile: (f: File | undefined) => 
   return (
     <div className="flex gap-1.5">
       {/* capture="environment" opens the phone camera directly; the second input opens the photo library. */}
-      <input ref={cam} type="file" accept="image/*" capture="environment" hidden onChange={pick} aria-label={`${label} camera`} />
+      {!ARTIFACT && <input ref={cam} type="file" accept="image/*" capture="environment" hidden onChange={pick} aria-label={`${label} camera`} />}
       <input ref={lib} type="file" accept="image/*" hidden onChange={pick} aria-label={`${label} gallery`} />
-      <button onClick={() => cam.current?.click()} className="flex-1 min-h-[40px] rounded-lg bg-raised border border-line text-xs inline-flex items-center justify-center gap-1"><Camera size={14} />{!compact && ' Camera'}</button>
-      <button onClick={() => lib.current?.click()} className="flex-1 min-h-[40px] rounded-lg bg-raised border border-line text-xs inline-flex items-center justify-center gap-1"><ImagePlus size={14} />{!compact && ' Gallery'}</button>
+      {!ARTIFACT && <button onClick={() => cam.current?.click()} className="flex-1 min-h-[40px] rounded-lg bg-raised border border-line text-xs inline-flex items-center justify-center gap-1"><Camera size={14} />{!compact && ' Camera'}</button>}
+      <button onClick={() => lib.current?.click()} className="flex-1 min-h-[40px] rounded-lg bg-raised border border-line text-xs inline-flex items-center justify-center gap-1"><ImagePlus size={14} />{ARTIFACT ? (compact ? ' Add' : ' Add photo') : !compact && ' Gallery'}</button>
     </div>
   )
 }
@@ -91,7 +91,7 @@ export function PhotoDay({ date }: { date: string }) {
           )
         })}
       </div>
-      <p className="text-[11px] text-mute mb-3">Camera icon retakes or replaces; the picture icon uploads from your gallery.</p>
+      <p className="text-[11px] text-mute mb-3">{ARTIFACT ? 'Tap Add to take a photo or choose one from your library. Adding again replaces it.' : 'Camera icon retakes or replaces; the picture icon uploads from your gallery.'}</p>
 
       <div className="text-xs text-mute mb-1">Additional photos</div>
       <div className="grid grid-cols-4 gap-2 mb-2">
@@ -119,7 +119,7 @@ export function PhotoDay({ date }: { date: string }) {
 }
 
 export default function Photos() {
-  const { data, profile } = useStore()
+  const { data, profile, backend } = useStore()
   const [params, setParams] = useSearchParams()
   const date = params.get('date') ?? today()
   const setDate = (d: string) => setParams({ date: d }, { replace: true })
@@ -154,7 +154,7 @@ export default function Photos() {
         <MonthGrid month={month} onMonth={setMonth} selected={date} onSelect={d => d <= today() && setDate(d)}
           marks={d => withPhotos.has(d) ? <Camera size={11} className="text-volt" aria-label="Has photos" /> : null} />
       </Card>
-      <p className="text-[11px] text-mute mt-3">Photos are stored privately and shown at their original proportions with no filters or retouching. Large photos are resized to 1600 px on the long edge.</p>
+      <p className="text-[11px] text-mute mt-3">{backend.mode === 'claude' ? 'Photos are stored with this Claude artifact: keep it unshared, because anyone you share it with could load them. They are shown' : 'Photos are stored privately and shown'} at their original proportions with no filters or retouching. Large photos are resized to 1600 px on the long edge.</p>
     </div>
   )
 }
