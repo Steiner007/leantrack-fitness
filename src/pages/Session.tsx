@@ -84,6 +84,13 @@ export default function SessionPage() {
         {list.length === 0 ? <Empty>Nothing is scheduled for this day. Starting creates an empty workout you can add exercises to.</Empty> : list.map(e => (
           <Card key={e.id} className="mb-2">
             <div className="flex justify-between gap-2"><span className="font-medium">{e.name}</span><span className="text-sm text-mute shrink-0">{targetText(e)}</span></div>
+            {(() => {
+              // Same weight the workout will pre-fill: last time's, or the starting weight if there's no history.
+              const w = buildSets(data, '', date, e, 0)[0]?.weight_lb
+              return e.unit === 'reps' && w != null
+                ? <div className="text-sm text-volt font-semibold mt-0.5 tnum">{w} lb{isDumbbell(e.name) ? ' per dumbbell' : lowerIsBetter(e.name) ? ' assistance' : ''}</div>
+                : null
+            })()}
             {e.instructions && <p className="text-xs text-mute mt-1">{e.instructions}</p>}
           </Card>
         ))}

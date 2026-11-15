@@ -172,6 +172,7 @@ async function logWorkout(date, weight, reps) {
 
 await step('workout: first session suggests starting weights and Heavier/Lighter adjust them', async () => {
   await go(`/session/${PREV_MON}`)
+  await text('110 lb') // weights are shown before starting
   await page.getByRole('button', { name: 'Start Workout' }).click()
   await text('Suggested starting weight: 100 lb')
   assert((await page.getByLabel('Lat pulldown set 3 weight').inputValue()) === '110', 'lat pulldown should start at 110')
