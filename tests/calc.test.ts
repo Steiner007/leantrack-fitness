@@ -4,7 +4,7 @@ import {
   targetText, weekCompletion, weightSeries, weightTrend, workoutStreak,
 } from '../src/lib/calc'
 import { addDays, diffDays, parse, range, toStr, weekStart, weekday } from '../src/lib/dates'
-import { STARTING_WEIGHTS, buildSeed } from '../src/lib/seed'
+import { STARTING_WEIGHTS, buildSeed, nextMonday } from '../src/lib/seed'
 import { buildSets } from '../src/lib/select'
 import type { FoodEntry, WeightEntry } from '../src/lib/types'
 
@@ -159,5 +159,14 @@ describe('starting weights', () => {
     expect(buildSets(withHistory, 's2', '2026-11-16', ex('Lat pulldown'), 0).map(r => r.weight_lb)).toEqual([125, 125, 125])
     // An exercise added by name later still gets the suggestion.
     expect(buildSets(seed, 's3', '2026-11-16', { name: 'Leg press', sets: 1, rep_low: 10, rep_high: 12, unit: 'reps', per_side: false }, 0)[0].weight_lb).toBe(STARTING_WEIGHTS['Leg press'])
+  })
+})
+
+describe('program start', () => {
+  it('starts on the coming Monday, or today when today is Monday', () => {
+    expect(nextMonday('2026-11-15')).toBe('2026-11-16') // Sunday
+    expect(nextMonday('2026-11-16')).toBe('2026-11-16') // Monday
+    expect(nextMonday('2026-11-17')).toBe('2026-11-23') // Tuesday
+    expect(nextMonday('2026-11-21')).toBe('2026-11-23') // Saturday
   })
 })

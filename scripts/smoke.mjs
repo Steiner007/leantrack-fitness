@@ -103,15 +103,14 @@ console.log(`LeanTrack smoke test (${exe})`)
 
 await step('dashboard loads with program week, targets and action buttons', async () => {
   await go('/')
-  await text('Week 1')
-  await text('Phase 1: Consistency')
+  if (now.getDay() === 1) { await text('Week 1'); await text('Phase 1: Consistency') } else await text(`Begins ${new Date(now.getFullYear(), now.getMonth(), now.getDate() + ((8 - now.getDay()) % 7)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`)
   for (const b of ['Start Workout', 'Log Food', 'Log Weight', 'Log Waist', 'View Progress']) await page.getByRole('button', { name: b }).waitFor()
   await text('target 2,150')
   await text('target 160 g')
 })
 
 await step('bottom navigation reaches every section', async () => {
-  for (const [label, heading] of [['Workouts', 'Workouts'], ['Food', 'Food'], ['Progress', 'Progress'], ['Profile', 'Profile'], ['Home', 'Week 1']]) {
+  for (const [label, heading] of [['Workouts', 'Workouts'], ['Food', 'Food'], ['Progress', 'Progress'], ['Profile', 'Profile'], ['Home', now.getDay() === 1 ? 'Week 1' : 'Starts in']]) {
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: label }).click()
     await page.getByRole('heading', { level: 1 }).filter({ hasText: heading }).waitFor({ timeout: 5000 })
   }

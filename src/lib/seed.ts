@@ -1,8 +1,11 @@
-import { today } from './dates'
+import { addDays, today, weekday } from './dates'
 import type { Data, Exercise, Kind, Profile, Program, Reminder, ReminderKind, Template, Unit } from './types'
 import { emptyData } from './types'
 
 export const uid = () => crypto.randomUUID()
+
+/** Programs start on a Monday (Upper Body A): today if it's Monday, otherwise the coming Monday. */
+export const nextMonday = (from = today()) => addDays(from, (8 - weekday(from)) % 7)
 
 export const DEFAULT_PROFILE: Omit<Profile, 'id'> = {
   sex: 'Male', age_range: '25–34', height_in: 69,
@@ -98,7 +101,7 @@ export const REMINDER_DEFAULTS: { kind: ReminderKind; label: string; time: strin
 export function buildSeed(): Data {
   const d = emptyData()
   const profile: Profile = { id: uid(), ...DEFAULT_PROFILE }
-  const program: Program = { id: uid(), name: 'LeanTrack 12-Week Recomposition', start_date: today(), weeks: 12, is_active: true }
+  const program: Program = { id: uid(), name: 'LeanTrack 12-Week Recomposition', start_date: nextMonday(), weeks: 12, is_active: true }
   d.profiles.push(profile)
   d.programs.push(program)
   for (const day of ROUTINE) {
