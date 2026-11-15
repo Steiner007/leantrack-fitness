@@ -28,7 +28,7 @@ Deliberate limits:
 
 ## Install on your iPhone
 
-Open the live link in **Safari** → Share → **Add to Home Screen**. It gets the LeanTrack icon and opens full screen. Adding it to the home screen also keeps Safari from clearing its saved data.
+Open the live link in **Chrome** → tap the **Share** icon in the address bar → **Add to Home Screen** (Safari works too: Share → Add to Home Screen; needs iOS 16.4+ for Chrome). It gets the LeanTrack icon and opens full screen. Adding it to the home screen also keeps Safari from clearing its saved data.
 
 ## Run it locally
 

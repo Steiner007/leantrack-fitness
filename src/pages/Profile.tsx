@@ -187,7 +187,7 @@ export default function Profile() {
       </Section>
 
       <Section title="Install on your phone">
-        <p className="text-sm leading-relaxed">{ARTIFACT && 'This hosted version runs inside Claude and cannot be installed; the deployed version can. '}iPhone: open this site in Safari, tap Share, then "Add to Home Screen". Android: open it in Chrome, tap the menu, then "Install app".</p>
+        <p className="text-sm leading-relaxed">{ARTIFACT && 'This hosted version runs inside Claude and cannot be installed; the deployed version can. '}iPhone (Chrome): tap the Share icon in the address bar, then "Add to Home Screen". iPhone (Safari): tap Share, then "Add to Home Screen". Android: Chrome menu, then "Install app".</p>
       </Section>
 
       {dirty && (
