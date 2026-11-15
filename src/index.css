@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+body {
+  @apply bg-bg text-ink font-sans antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+input, select, textarea { font-size: 16px; } /* stops iOS zooming on focus */
+input[type='date'], input[type='time'] { color-scheme: dark; }
+.safe-b { padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem); }
+.safe-t { padding-top: env(safe-area-inset-top); }
+.tnum { font-variant-numeric: tabular-nums; }
+@keyframes rise { from { transform: translateY(12px); opacity: 0 } to { transform: none; opacity: 1 } }
+.rise { animation: rise 0.16s ease-out; }
+@media (prefers-reduced-motion: reduce) { .rise { animation: none; } }
