@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CalendarDays, ChevronRight, ClipboardCheck, Download, ListChecks, LogOut, Trash2 } from 'lucide-react'
-import JSZip from 'jszip'
+import { CalendarDays, ChevronRight, ClipboardCheck, Download, ListChecks, Trash2 } from 'lucide-react'
 import { Btn, Card, Field, Header, Num, Sheet, Tabs, Toggle, inputCls, useRun, useToast } from '../components/ui'
 import { PHASES, programPos } from '../lib/calc'
 import { DAY_NAMES, addDays, fmt, today } from '../lib/dates'
@@ -34,7 +33,7 @@ const LinkRow = ({ to, icon: Icon, label }: { to: string; icon: typeof CalendarD
 )
 
 export default function Profile() {
-  const { data, profile, program, backend, email, save, signOut, reload } = useStore()
+  const { data, profile, program, backend, save, reload } = useStore()
   const nav = useNavigate()
   const run = useRun()
   const toast = useToast()
@@ -68,35 +67,22 @@ export default function Profile() {
 
   const download = saveFile
   const exportJson = () => JSON.stringify({ app: 'LeanTrack', exported_at: new Date().toISOString(), ...Object.fromEntries(TABLES.map(t => [t, data[t]])) }, null, 2)
-  async function exportData(withPhotos: boolean) {
-    setBusy(withPhotos ? 'zip' : 'json')
-    try {
-      if (!withPhotos) await download(new Blob([exportJson()], { type: 'application/json' }), `leantrack-${today()}.json`)
-      else {
-        const zip = new JSZip()
-        zip.file('leantrack-data.json', exportJson())
-        let missed = 0
-        for (const ph of data.progress_photos) {
-          try { zip.file(`photos/${ph.date}_${ph.pose}_${ph.id.slice(0, 8)}.jpg`, await backend.photoBlob(ph.storage_path)) } catch { missed++ }
-        }
-        await download(await zip.generateAsync({ type: 'blob' }), `leantrack-${today()}.zip`)
-        if (missed) toast(`${missed} photo${missed === 1 ? '' : 's'} could not be downloaded and ${missed === 1 ? 'is' : 'are'} missing from the export.`, 'err')
-      }
-    } catch (e) {
-      toast(`Export failed. ${e instanceof Error ? e.message : ''}`, 'err')
-    }
+  async function exportData() {
+    setBusy('json')
+    try { await download(new Blob([exportJson()], { type: 'application/json' }), `leantrack-${today()}.json`) }
+    catch (e) { toast(`Export failed. ${e instanceof Error ? e.message : ''}`, 'err') }
     setBusy(null)
   }
   async function deleteAll() {
     setBusy('delete')
-    const ok = await run(() => backend.deleteEverything(data.progress_photos.map(ph => ph.storage_path)))
+    const ok = await run(() => backend.deleteEverything())
     setBusy(null)
     if (ok) { setConfirmDelete(false); nav('/'); reload() }
   }
 
   return (
     <div>
-      <Header title="Profile" sub={backend.mode === 'supabase' ? email ?? undefined : backend.mode === 'claude' ? 'Saved to your Claude account' : 'Local mode — data stays on this device'} />
+      <Header title="Profile" sub={backend.mode === 'claude' ? 'Saved to your Claude account' : 'Saved on this phone'} />
 
       <Card className="mb-3 !py-1">
         <LinkRow to="/checkin" icon={ClipboardCheck} label="Weekly check-in" />
@@ -191,25 +177,14 @@ export default function Profile() {
       </Section>
 
       <Section title="Your data">
-        <div className="grid grid-cols-2 gap-2">
-          <Btn busy={busy === 'json'} onClick={() => exportData(false)}><Download size={16} /> Data (JSON)</Btn>
-          <Btn busy={busy === 'zip'} onClick={() => exportData(true)}><Download size={16} /> Data + photos</Btn>
-        </div>
+        <Btn full busy={busy === 'json'} onClick={exportData}><Download size={16} /> Back up data (JSON)</Btn>
         <p className="text-xs text-mute my-3">
-          {backend.mode === 'supabase'
-            ? 'Photos are kept in a private bucket and shown through links that expire after an hour.'
-            : backend.mode === 'claude' ? 'Your entries are saved to your private space in this Claude artifact. Photos are stored with the artifact itself, so keep it unshared.'
-            : 'Local mode: everything is stored in this browser only. Export regularly; clearing site data erases it.'}
+          {backend.mode === 'claude'
+            ? 'Your entries are saved to your private space in this Claude artifact.'
+            : 'Everything is saved on this phone only: no account, nothing on a server. Deleting the home-screen app or clearing Safari website data erases it, so back up now and then.'}
         </p>
-        {backend.mode === 'supabase' && <Btn full className="mb-2" onClick={() => signOut()}><LogOut size={16} /> Sign out</Btn>}
-        <Btn full variant="danger" onClick={() => { setTyped(''); setConfirmDelete(true) }}><Trash2 size={16} /> Delete {backend.mode === 'supabase' ? 'account and all data' : 'all data'}</Btn>
+        <Btn full variant="danger" onClick={() => { setTyped(''); setConfirmDelete(true) }}><Trash2 size={16} /> Delete all data</Btn>
       </Section>
-
-      {backend.mode === 'local' && (
-        <Section title="Where your data lives">
-          <p className="text-sm leading-relaxed">This version saves everything, photos included, on this phone only. Nothing goes to a server, so it won't appear on other devices and deleting the app or clearing Safari's website data erases it. Use "Data + photos" above now and then as a backup.</p>
-        </Section>
-      )}
 
       <Section title="Install on your phone">
         <p className="text-sm leading-relaxed">{ARTIFACT && 'This hosted version runs inside Claude and cannot be installed; the deployed version can. '}iPhone: open this site in Safari, tap Share, then "Add to Home Screen". Android: open it in Chrome, tap the menu, then "Install app".</p>
@@ -226,7 +201,7 @@ export default function Profile() {
 
       <Sheet open={confirmDelete} onClose={() => setConfirmDelete(false)} title="Delete everything?">
         <p className="text-sm leading-relaxed mb-3">
-          This permanently deletes your workouts, food log, weights, measurements, notes and all progress photos{backend.mode === 'supabase' ? ', and your login' : ''}. It cannot be undone. Export first if you want a copy.
+          This permanently deletes your workouts, food log, weights, measurements and notes. It cannot be undone. Export first if you want a copy.
         </p>
         <Field label='Type DELETE to confirm'><input className={inputCls} value={typed} autoCapitalize="characters" onChange={e => setTyped(e.target.value)} /></Field>
         <Btn full variant="danger" busy={busy === 'delete'} disabled={typed.trim() !== 'DELETE'} onClick={deleteAll}>Permanently delete</Btn>

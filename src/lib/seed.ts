@@ -73,7 +73,6 @@ export const REMINDER_DEFAULTS: { kind: ReminderKind; label: string; time: strin
   { kind: 'weigh_in', label: 'Daily weigh-in', time: '07:00', weekday: null },
   { kind: 'workout', label: 'Workout', time: '17:00', weekday: null },
   { kind: 'food', label: 'Food tracking', time: '20:00', weekday: null },
-  { kind: 'photos', label: 'Progress photos', time: '07:15', weekday: null },
   { kind: 'waist', label: 'Weekly waist measurement', time: '07:30', weekday: 0 },
   { kind: 'review', label: 'Weekly review', time: '18:00', weekday: 0 },
 ]

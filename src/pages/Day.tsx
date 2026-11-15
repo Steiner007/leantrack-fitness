@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { MeasureSheet, WeightSheet } from '../components/sheets'
 import { Card, DateNav, Header, Num, inputCls, useRun } from '../components/ui'
@@ -7,7 +7,6 @@ import { programPos, rollingAvg, showWeight } from '../lib/calc'
 import { today } from '../lib/dates'
 import { dayTotals, foodOn, measureOn, noteFor, sessionFor, setsFor, templateFor, weightOn } from '../lib/select'
 import { useStore } from '../lib/store'
-import { PhotoDay } from './Photos'
 
 export default function Day() {
   const { date = today() } = useParams()
@@ -51,10 +50,6 @@ export default function Day() {
           <Num label="Steps" value={note.steps} placeholder="—" onCommit={n => run(() => save('daily_notes', { ...note, steps: n == null ? null : Math.round(n) }), 'Steps saved')} className={inputCls} />
         </Card>
       </div>
-      <Card className="mb-3">
-        <div className="flex items-center justify-between mb-2"><span className="text-sm font-semibold">Progress photos</span><Link to="/compare" className="text-xs text-volt">Compare →</Link></div>
-        <PhotoDay date={date} />
-      </Card>
       <Card>
         <div className="text-sm font-semibold mb-2">Notes</div>
         <textarea aria-label="Daily notes" rows={3} placeholder="How did today go?" defaultValue={note.note ?? ''} key={date + (note.note ?? '')} className={inputCls + ' py-2'}

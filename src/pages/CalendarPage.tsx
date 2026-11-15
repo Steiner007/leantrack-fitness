@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera } from 'lucide-react'
-import { MonthGrid } from '../components/photo'
+import { MonthGrid } from '../components/calendar'
 import { Card, Header } from '../components/ui'
 import { today } from '../lib/dates'
 import { useStore } from '../lib/store'
@@ -15,7 +14,6 @@ export default function CalendarPage() {
   const sets = useMemo(() => ({
     workout: new Set(data.workout_sessions.filter(s => s.completed_at).map(s => s.date)),
     weight: new Set(data.weight_entries.map(w => w.date)),
-    photo: new Set(data.progress_photos.map(p => p.date)),
     food: new Set(data.food_entries.map(f => f.date)),
     waist: new Set(data.body_measurements.filter(m => m.waist_in != null).map(m => m.date)),
   }), [data])
@@ -29,7 +27,6 @@ export default function CalendarPage() {
             {sets.weight.has(d) && <Dot c="bg-sky" label="Weight logged" />}
             {sets.food.has(d) && <Dot c="bg-warn" label="Food logged" />}
             {sets.waist.has(d) && <span className="h-1.5 w-1.5 rounded-full border border-ink" aria-label="Waist measured" />}
-            {sets.photo.has(d) && <Camera size={9} className="text-ink" aria-label="Photos" />}
           </>
         )} />
       </Card>
@@ -38,7 +35,6 @@ export default function CalendarPage() {
         <span className="inline-flex items-center gap-1.5"><Dot c="bg-sky" label="" /> Weight</span>
         <span className="inline-flex items-center gap-1.5"><Dot c="bg-warn" label="" /> Food</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full border border-ink" /> Waist</span>
-        <span className="inline-flex items-center gap-1.5"><Camera size={11} className="text-ink" /> Photos</span>
       </div>
       <p className="text-xs text-mute mt-3">Tap any day to see or edit everything recorded for it.</p>
     </div>

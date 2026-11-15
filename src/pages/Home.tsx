@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Bell, Camera, CalendarDays, Check, Droplet, Dumbbell, Flame, Footprints, LineChart, Scale, Utensils } from 'lucide-react'
+import { Bell, CalendarDays, Check, Droplet, Dumbbell, Flame, Footprints, LineChart, Ruler, Scale, Utensils } from 'lucide-react'
 import { Bar, Btn, Card, Num, cx, useRun } from '../components/ui'
 import { MeasureSheet, WeightSheet } from '../components/sheets'
 import { programPos, round, rollingAvg, showWeight, weekCompletion, weightTrend, workoutStreak } from '../lib/calc'
 import { fmt, fmtLong, relLabel, today } from '../lib/dates'
 import { REMINDER_COPY, dueReminders } from '../lib/reminders'
-import { dayTotals, exercisesFor, latestWeight, noteFor, photosOn, sessionFor, setsFor, templateFor } from '../lib/select'
+import { dayTotals, exercisesFor, latestWeight, noteFor, sessionFor, setsFor, templateFor } from '../lib/select'
 import { useStore } from '../lib/store'
 import { ARTIFACT } from '../lib/claudeBackend'
 
@@ -41,7 +41,7 @@ export default function Home() {
   const latest = latestWeight(data)
   const avg = rollingAvg(data.weight_entries, date)
   const trend = weightTrend(data.weight_entries, date, profile.goal_weight_lb)
-  const photos = photosOn(data, date)
+  const waists = data.body_measurements.filter(m => m.waist_in != null).sort((a, b) => b.date.localeCompare(a.date))
   const streak = workoutStreak(data.workout_templates, data.workout_sessions, date)
   const week = weekCompletion(data.workout_templates, data.workout_sessions, date)
   const hhmm = new Date().toTimeString().slice(0, 5)
@@ -84,7 +84,7 @@ export default function Home() {
 
       {backend.mode === 'local' && (
         <p className="mb-3 rounded-xl border border-warn/40 bg-warn/10 text-warn text-xs px-3 py-2">
-          {ARTIFACT ? "Saved data isn't available in this view, so entries are kept only in this browser and may not last. Open the app from your own Claude account to save properly." : "Saved on this phone only. Back up from Profile → Your data."}
+          {ARTIFACT ? "Saved data isn't available in this view, so entries are kept only in this browser and may not last." : "Saved on this phone only. Back up from Profile → Your data."}
         </p>
       )}
 
@@ -119,7 +119,7 @@ export default function Home() {
       <div className="grid grid-cols-2 gap-2 mb-3">
         <Btn onClick={() => nav('/food')}><Utensils size={18} /> Log Food</Btn>
         <Btn onClick={() => setSheet('weight')}><Scale size={18} /> Log Weight</Btn>
-        <Btn onClick={() => nav('/photos')}><Camera size={18} /> Add Progress Photo</Btn>
+        <Btn onClick={() => setSheet('measure')}><Ruler size={18} /> Log Waist</Btn>
         <Btn onClick={() => nav('/progress')}><LineChart size={18} /> View Progress</Btn>
       </div>
 
@@ -173,10 +173,10 @@ export default function Home() {
       </Card>
 
       <div className="grid grid-cols-2 gap-2 mb-3">
-        <Card onClick={() => nav('/photos')} className="!p-3">
-          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-mute"><Camera size={14} /> Photos today</div>
-          <div className={cx('text-base font-semibold mt-1', photos.length ? 'text-volt' : '')}>{photos.length ? `${photos.length} added` : 'Not yet'}</div>
-          <div className="text-xs text-mute">{(['front', 'side', 'back'] as const).map(p => `${photos.some(x => x.pose === p) ? '✓' : '○'} ${p}`).join('  ')}</div>
+        <Card onClick={() => setSheet('measure')} className="!p-3">
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-mute"><Ruler size={14} /> Waist</div>
+          <div className="text-base font-semibold mt-1 tnum">{waists[0] ? `${waists[0].waist_in} in` : 'Not measured'}</div>
+          <div className="text-xs text-mute tnum">{waists[0] ? `${relLabel(waists[0].date)}${waists[1] ? ` · ${round(waists[0].waist_in! - waists[1].waist_in!, 2) > 0 ? '+' : ''}${round(waists[0].waist_in! - waists[1].waist_in!, 2)} in` : ''}` : 'Measure weekly'}</div>
         </Card>
         <Card className="!p-3">
           <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-mute"><Flame size={14} /> Training</div>

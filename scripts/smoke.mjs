@@ -9,8 +9,7 @@
  * the browser binary.
  */
 import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import { deflateSync } from 'node:zlib'
+import { existsSync, mkdirSync } from 'node:fs'
 import { chromium } from 'playwright-core'
 
 // SMOKE_TARGET=artifact tests the Claude-hosted build (dist-artifact) against a stand-in for Claude's storage.
@@ -20,18 +19,7 @@ const BASE = `http://localhost:${PORT}`
 const exe = process.env.CHROME_PATH || ['/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'].find(existsSync)
 if (!exe) { console.error('No Chrome found. Set CHROME_PATH.'); process.exit(2) }
 
-// --- tiny PNG writer so the test has real images to upload ---
-function png(w, h, [r, g, b]) {
-  const crcT = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0 })
-  const crc = buf => { let c = 0xffffffff; for (const x of buf) c = crcT[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0 }
-  const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const td = Buffer.concat([Buffer.from(type), data]); const c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([len, td, c]) }
-  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2
-  const row = Buffer.concat([Buffer.from([0]), Buffer.from(Array.from({ length: w }, () => [r, g, b]).flat())])
-  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(Buffer.concat(Array(h).fill(row)))), chunk('IEND', Buffer.alloc(0))])
-}
 mkdirSync('test-results', { recursive: true })
-writeFileSync('test-results/a.png', png(1800, 2400, [200, 60, 60]))  // larger than the 1600px cap
-writeFileSync('test-results/b.png', png(600, 800, [60, 60, 200]))
 
 const pad = n => String(n).padStart(2, '0')
 const ds = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
@@ -105,19 +93,9 @@ if (ART) {
     const caps = {
       db: { doc },
       user: { id: async () => 'u_test' },
-      assets: {
-        upload: blob => new Promise(res => { const r = new FileReader(); r.onload = () => { const id = Math.random().toString(16).slice(2).padEnd(32, '0'); const a = load('mockassets'); a[id] = r.result; store('mockassets', a); res({ id, url: '/_blob/' + id }) }; r.readAsDataURL(blob) }),
-        delete: async id => { const a = load('mockassets'); const had = id in a; delete a[id]; store('mockassets', a); return { deleted: had } },
-      },
       downloads: { save: async ({ filename, data }) => { (window.__saved ??= []).push({ filename, text: typeof data === 'string' ? data : await data.text() }); return { status: 'saved' } } },
     }
     window.claude = { use: name => new Promise(r => setTimeout(() => r(caps[name] ?? null), 30)) }
-  })
-  await page.route('**/_blob/*', async route => {
-    const id = route.request().url().split('/').pop()
-    const d = await page.evaluate(i => JSON.parse(localStorage.getItem('mockassets') || '{}')[i], id)
-    if (!d) return route.fulfill({ status: 404 })
-    route.fulfill({ contentType: 'image/jpeg', body: Buffer.from(d.split(',')[1], 'base64') })
   })
 }
 
@@ -127,7 +105,7 @@ await step('dashboard loads with program week, targets and action buttons', asyn
   await go('/')
   await text('Week 1')
   await text('Phase 1: Consistency')
-  for (const b of ['Start Workout', 'Log Food', 'Log Weight', 'Add Progress Photo', 'View Progress']) await page.getByRole('button', { name: b }).waitFor()
+  for (const b of ['Start Workout', 'Log Food', 'Log Weight', 'Log Waist', 'View Progress']) await page.getByRole('button', { name: b }).waitFor()
   await text('target 2,150')
   await text('target 160 g')
 })
@@ -141,7 +119,7 @@ await step('bottom navigation reaches every section', async () => {
 
 await step('dashboard quick buttons open the right screens', async () => {
   await page.getByRole('button', { name: 'Log Food' }).click(); await page.getByRole('heading', { name: 'Food' }).waitFor()
-  await go('/'); await page.getByRole('button', { name: 'Add Progress Photo' }).click(); await page.getByRole('heading', { name: 'Progress photos' }).waitFor()
+  await go('/'); await page.getByRole('button', { name: 'Log Waist' }).click(); await page.getByRole('heading', { name: 'Body measurements' }).waitFor()
   await go('/'); await page.getByRole('button', { name: 'View Progress' }).click(); await page.getByRole('heading', { name: 'Progress', exact: true }).waitFor()
   await go('/'); await page.getByRole('link', { name: 'Calendar' }).click(); await page.getByRole('heading', { name: 'Calendar' }).waitFor()
 })
@@ -311,56 +289,6 @@ await step('food: search saved foods, adjust portion, save meal, repeat', async 
   await go('/'); await text('488') // today's dashboard calories (487.5)
 })
 
-async function addPhoto(date, label, file) {
-  await go(`/photos?date=${date}`)
-  await page.getByLabel(`Add ${label} gallery`).setInputFiles(file)
-  await toast('Photo saved')
-}
-const loaded = sel => page.waitForFunction(a => { const i = document.querySelector(`img[alt="${a}"]`); return i && i.complete && i.naturalWidth > 0 ? [i.naturalWidth, i.naturalHeight] : false }, sel, { timeout: 8000 }).then(h => h.jsonValue())
-
-await step('photos: upload, view again after reload, proportions preserved and large files resized', async () => {
-  await addPhoto(back(3), 'Front', 'test-results/a.png')
-  const [w, h] = await loaded('Front photo')
-  assert(w === 1200 && h === 1600, `expected 1200x1600 after resize, got ${w}x${h}`)
-  await addPhoto(TODAY, 'Front', 'test-results/b.png')
-  await addPhoto(TODAY, 'Side', 'test-results/b.png')
-  await reload()
-  const [w2, h2] = await loaded('Front photo')
-  assert(w2 === 600 && h2 === 800, `small photo should be untouched, got ${w2}x${h2}`)
-  await page.getByLabel('Has photos').first().waitFor() // calendar camera indicator
-  await text('174.6 lb')                                // weight shown for the selected date
-  await page.getByRole('button', { name: 'View Front photo' }).click()
-  await page.getByRole('dialog', { name: 'Photo full screen' }).waitFor()
-  await page.getByRole('button', { name: 'Close' }).click()
-})
-
-await step('photos: replace and delete', async () => {
-  await page.getByLabel('Replace Side gallery').setInputFiles('test-results/a.png')
-  await toast('Photo replaced')
-  const [w] = await loaded('Side photo'); assert(w === 1200, 'replacement not shown')
-  assert((await page.locator('img[alt="Side photo"]').count()) === 1, 'old photo still present after replace')
-  await page.getByRole('button', { name: 'Delete' }).nth(1).click()
-  await confirmDlg('Delete')
-  await toast('Photo deleted')
-  await reload()
-  assert((await page.locator('img[alt="Side photo"]').count()) === 0, 'deleted photo came back')
-  await go('/'); await text('1 added')
-})
-
-await step('photos: before/after comparison side by side, slider and full screen', async () => {
-  await go('/compare')
-  await loaded('Before front photo'); await loaded('After front photo')
-  await text('175.4 lb'); await text('174.6 lb') // weight under each photo
-  await page.getByRole('tab', { name: 'Slider' }).click()
-  await loaded('Before photo'); await loaded('After photo')
-  await page.getByLabel('Before and after slider position').waitFor({ state: 'attached' })
-  await page.getByRole('button', { name: 'Full screen' }).click()
-  await page.getByRole('dialog', { name: 'Full screen comparison' }).waitFor()
-  await page.getByRole('button', { name: 'Exit full screen' }).click()
-  await page.getByRole('tab', { name: 'Side', exact: true }).click()
-  await text('No side photo')
-})
-
 await step('measurements save and appear in day history', async () => {
   await go(`/day/${TODAY}`)
   await page.getByRole('button', { name: /waist|measure/i }).first().click()
@@ -372,7 +300,7 @@ await step('measurements save and appear in day history', async () => {
 
 await step('calendar shows the day and opens it', async () => {
   await go('/calendar')
-  await page.getByLabel('Photos').first().waitFor()
+  await page.getByLabel('Weight logged').first().waitFor()
   await page.getByRole('button', { name: now.toLocaleDateString(undefined, { month: 'long', day: 'numeric' }), exact: true }).click()
   await text('174.6 lb')
 })
@@ -390,9 +318,8 @@ await step('progress page draws charts for every range', async () => {
   await page.locator('[aria-label="Daily calories against target"] svg').waitFor()
   await page.getByRole('tab', { name: 'body' }).click()
   await text('34.5')
-  await page.getByRole('tab', { name: 'photos' }).click()
-  await page.locator('img[alt]').first().waitFor()
   await text('does not estimate body-fat')
+  assert(!(await page.getByRole('tab', { name: 'photos' }).count()), 'photos tab should be gone')
 })
 
 await step('profile: edits save, change the dashboard, and survive reload', async () => {
@@ -426,24 +353,18 @@ await step('reminders are optional and appear in-app when enabled', async () => 
 
 await step('export downloads a JSON file with the saved data', async () => {
   await go('/profile')
-  let json, zipName
+  let json
   if (ART) {
-    await page.getByRole('button', { name: 'Data (JSON)' }).click()
+    await page.getByRole('button', { name: 'Back up data (JSON)' }).click()
     await page.waitForFunction(() => window.__saved?.length === 1)
-    await page.getByRole('button', { name: 'Data + photos' }).click()
-    await page.waitForFunction(() => window.__saved?.length === 2)
-    const saved = await page.evaluate(() => window.__saved)
-    json = saved[0].text; zipName = saved[1].filename
+    json = (await page.evaluate(() => window.__saved))[0].text
   } else {
-    const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Data (JSON)' }).click()])
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Back up data (JSON)' }).click()])
     json = ''
     for await (const c of await dl.createReadStream()) json += c
-    const [zip] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Data + photos' }).click()])
-    zipName = zip.suggestedFilename()
   }
   const j = JSON.parse(json)
-  assert(j.weight_entries.length === 2 && j.exercise_sets.length > 10 && j.progress_photos.length === 2 && j.food_entries.length >= 4, 'export is missing data')
-  assert(zipName.endsWith('.zip'), 'photo export should be a zip')
+  assert(j.weight_entries.length === 2 && j.exercise_sets.length > 10 && j.food_entries.length >= 4 && !('progress_photos' in j), 'export is missing data')
 })
 
 if (!ART) await step('PWA manifest and service worker are served', async () => {
@@ -461,7 +382,7 @@ await step('offline banner appears when the connection drops', async () => {
 })
 
 await step('layout fits a phone screen with no sideways scrolling', async () => {
-  for (const p of ['/', '/workouts', '/food', '/progress', '/profile', '/photos', '/calendar', `/session/${MON}`, '/workouts/edit', '/compare']) {
+  for (const p of ['/', '/workouts', '/food', '/progress', '/profile', '/calendar', `/day/${TODAY}`, `/session/${MON}`, '/workouts/edit', '/checkin']) {
     await go(p)
     const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     assert(over <= 1, `${p} overflows horizontally by ${over}px`)
@@ -476,10 +397,14 @@ await step('delete all data wipes everything', async () => {
   await page.getByRole('navigation', { name: 'Main' }).waitFor()
   await text('No entries yet'); await text('target 2,150')
   if (ART) {
-    const left = await page.evaluate(() => [Object.keys(JSON.parse(localStorage.mockassets || '{}')).length, Object.keys(JSON.parse(localStorage.mockdb)).length])
-    assert(left[0] === 0, 'photos were not deleted from storage')
-    assert(left[1] === 47, `expected a fresh 47-row seed after wipe, found ${left[1]} rows`)
+    const left = await page.evaluate(() => Object.keys(JSON.parse(localStorage.mockdb)).length)
+    assert(left === 46, `expected a fresh 46-row seed after wipe, found ${left} rows`)
   }
+})
+
+await step('no login screen and no photo features anywhere', async () => {
+  await go('/')
+  assert(!(await page.getByText(/sign in|password|photo/i).count()), 'login or photo UI still present')
 })
 
 await step('no JavaScript errors were logged', async () => {

@@ -3,15 +3,12 @@ import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Dumbbell, Home as HomeIcon, LineChart, User, Utensils, WifiOff } from 'lucide-react'
 import { Dialogs, ToastProvider, cx } from './components/ui'
 import { StoreProvider, useStore } from './lib/store'
-import { AuthScreen, RecoveryScreen } from './pages/Auth'
 import Home from './pages/Home'
 import Workouts from './pages/Workouts'
 import EditSchedule from './pages/EditSchedule'
 import SessionPage from './pages/Session'
 import Food from './pages/Food'
 import Progress from './pages/Progress'
-import Photos from './pages/Photos'
-import Compare from './pages/Compare'
 import CalendarPage from './pages/CalendarPage'
 import Day from './pages/Day'
 import Profile from './pages/Profile'
@@ -48,7 +45,7 @@ function Shell() {
     <div className="mx-auto max-w-lg min-h-full pb-28 px-4 safe-t">
       {!online && (
         <div role="status" className="mt-3 flex items-center gap-2 rounded-xl bg-warn/15 border border-warn/40 text-warn text-xs px-3 py-2">
-          <WifiOff size={14} /> You're offline. {backend.mode !== 'local' ? "You can look around, but changes can't be saved until you reconnect." : 'Local data still works.'}
+          <WifiOff size={14} /> You're offline. {backend.mode !== 'local' ? "You can look around, but changes can't be saved until you reconnect." : 'Everything still works and saves on this phone.'}
         </div>
       )}
       <Boundary k={loc.pathname}>
@@ -59,8 +56,6 @@ function Shell() {
           <Route path="/session/:date" element={<SessionPage />} />
           <Route path="/food" element={<Food />} />
           <Route path="/progress" element={<Progress />} />
-          <Route path="/photos" element={<Photos />} />
-          <Route path="/compare" element={<Compare />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/day/:date" element={<Day />} />
           <Route path="/profile" element={<Profile />} />
@@ -86,7 +81,7 @@ function Shell() {
 export default function App() {
   return (
     <ToastProvider>
-      <StoreProvider authScreen={<AuthScreen />} recoveryScreen={done => <RecoveryScreen done={done} />}>
+      <StoreProvider>
         <Shell />
         <Dialogs />
       </StoreProvider>

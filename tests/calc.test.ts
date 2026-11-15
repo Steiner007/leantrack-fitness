@@ -4,7 +4,6 @@ import {
   targetText, weekCompletion, weightSeries, weightTrend, workoutStreak,
 } from '../src/lib/calc'
 import { addDays, diffDays, parse, range, toStr, weekStart, weekday } from '../src/lib/dates'
-import { fitWithin } from '../src/lib/photos'
 import { buildSeed } from '../src/lib/seed'
 import type { FoodEntry, WeightEntry } from '../src/lib/types'
 
@@ -136,13 +135,5 @@ describe('training', () => {
     expect(isPR({ exercise_name: 'Leg press', weight_lb: 220, reps: 8, completed: true }, best)).toBe(false)
     expect(isPR({ exercise_name: 'Leg press', weight_lb: 230, reps: 8, completed: false }, best)).toBe(false)
     expect(isPR({ exercise_name: 'Leg press', weight_lb: 230, reps: 8, completed: true }, undefined)).toBe(false)
-  })
-})
-
-describe('photos', () => {
-  it('downsizes large photos without changing proportions', () => {
-    expect(fitWithin(3000, 4000)).toEqual({ width: 1200, height: 1600 })
-    expect(fitWithin(4000, 3000)).toEqual({ width: 1600, height: 1200 })
-    expect(fitWithin(800, 1000)).toEqual({ width: 800, height: 1000 }) // never upscaled
   })
 })

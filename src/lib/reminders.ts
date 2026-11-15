@@ -6,7 +6,6 @@ export const REMINDER_COPY: Record<ReminderKind, { text: string; to: string }> =
   weigh_in: { text: "Log today's weight", to: 'weight' },
   workout: { text: "Today's workout is waiting", to: 'workout' },
   food: { text: "Log today's food", to: '/food' },
-  photos: { text: "Take today's progress photos", to: '/photos' },
   waist: { text: 'Measure your waist this week', to: 'measure' },
   review: { text: 'Do your weekly check-in', to: '/checkin' },
 }
@@ -18,7 +17,6 @@ export function dueReminders(d: Data, date: string, nowHHMM: string): ReminderKi
     weigh_in: d.weight_entries.some(w => w.date === date),
     workout: (templateFor(d, date)?.kind ?? 'recovery') === 'recovery' || d.workout_sessions.some(s => s.date === date && s.completed_at),
     food: d.food_entries.some(f => f.date === date),
-    photos: d.progress_photos.some(p => p.date === date),
     waist: d.body_measurements.some(m => m.date >= wk && m.waist_in != null),
     review: d.weekly_checkins.some(c => c.date >= wk),
   }

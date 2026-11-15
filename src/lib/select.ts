@@ -15,11 +15,10 @@ export const dayTotals = (d: Data, date: string) => sumMacros(foodOn(d, date))
 export const weightOn = (d: Data, date: string) => d.weight_entries.find(w => w.date === date)
 export const latestWeight = (d: Data) => [...d.weight_entries].sort((a, b) => b.date.localeCompare(a.date))[0]
 export const measureOn = (d: Data, date: string) => d.body_measurements.find(m => m.date === date)
-export const photosOn = (d: Data, date: string) => d.progress_photos.filter(p => p.date === date)
 /** The saved note row for a date, or a blank (unsaved) one with a fresh id. */
 const pendingNoteIds = new Map<string, string>() // keeps one id per date until the first save lands
 export const noteFor = (d: Data, date: string): DailyNote =>
-  d.daily_notes.find(n => n.date === date) ?? { id: pendingNoteIds.get(date) ?? (pendingNoteIds.set(date, uid()), pendingNoteIds.get(date)!), date, note: null, photo_note: null, water_oz: 0, steps: null, exercise_calories: null }
+  d.daily_notes.find(n => n.date === date) ?? { id: pendingNoteIds.get(date) ?? (pendingNoteIds.set(date, uid()), pendingNoteIds.get(date)!), date, note: null, water_oz: 0, steps: null, exercise_calories: null }
 
 export const datedSets = (d: Data) => {
   const dateOf = new Map(d.workout_sessions.map(s => [s.id, s.date]))

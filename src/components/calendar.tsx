@@ -1,25 +1,6 @@
-import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, ImageOff } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { addDays, parse, toStr, today } from '../lib/dates'
-import { useStore } from '../lib/store'
 import { cx } from './ui'
-
-/** Loads a private photo through the backend (signed URL on Supabase). Never crops or filters: object-contain only. */
-export function PhotoImg({ path, alt, className }: { path: string; alt: string; className?: string }) {
-  const { backend } = useStore()
-  const [url, setUrl] = useState<string | null>(null)
-  const [err, setErr] = useState(false)
-  useEffect(() => {
-    let live = true
-    setUrl(null)
-    setErr(false)
-    backend.photoUrl(path).then(u => live && setUrl(u), () => live && setErr(true))
-    return () => { live = false }
-  }, [path, backend])
-  if (err) return <div className={cx('grid place-items-center bg-raised text-mute text-xs', className)}><div className="text-center"><ImageOff className="mx-auto mb-1" size={20} />Couldn't load</div></div>
-  if (!url) return <div className={cx('bg-raised animate-pulse', className)} role="img" aria-label={`${alt} loading`} />
-  return <img src={url} alt={alt} onError={() => setErr(true)} className={cx('object-contain bg-black', className)} draggable={false} />
-}
 
 /** Month grid. `marks(date)` returns small indicators to draw under the day number. */
 export function MonthGrid({ month, onMonth, selected, onSelect, marks }: {

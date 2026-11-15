@@ -1,6 +1,5 @@
 export type Unit = 'reps' | 'sec' | 'min'
 export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snack'
-export type Pose = 'front' | 'side' | 'back' | 'extra'
 export type Kind = 'lifting' | 'cardio' | 'recovery'
 
 interface Base { id: string; user_id?: string; created_at?: string }
@@ -45,9 +44,8 @@ export interface Measurement extends Base {
   date: string; waist_in: number | null; chest_in: number | null; arms_in: number | null
   hips_in: number | null; thighs_in: number | null
 }
-export interface Photo extends Base { date: string; pose: Pose; storage_path: string; width: number | null; height: number | null }
-export interface DailyNote extends Base { date: string; note: string | null; photo_note: string | null; water_oz: number; steps: number | null; exercise_calories: number | null }
-export type ReminderKind = 'weigh_in' | 'workout' | 'food' | 'photos' | 'waist' | 'review'
+export interface DailyNote extends Base { date: string; note: string | null; water_oz: number; steps: number | null; exercise_calories: number | null }
+export type ReminderKind = 'weigh_in' | 'workout' | 'food' | 'waist' | 'review'
 export interface Reminder extends Base { kind: ReminderKind; enabled: boolean; time_of_day: string; weekday: number | null }
 export interface Checkin extends Base {
   date: string; week_number: number; avg_weight_lb: number | null; weekly_change_lb: number | null
@@ -57,14 +55,14 @@ export interface Checkin extends Base {
 export interface Tables {
   profiles: Profile; programs: Program; workout_templates: Template; exercises: Exercise
   workout_sessions: Session; exercise_sets: SetRow; saved_foods: SavedFood; food_entries: FoodEntry
-  weight_entries: WeightEntry; body_measurements: Measurement; progress_photos: Photo
+  weight_entries: WeightEntry; body_measurements: Measurement
   daily_notes: DailyNote; reminder_preferences: Reminder; weekly_checkins: Checkin
 }
 export type TableName = keyof Tables
 // Order matters: parents before children (used for inserts; reversed for deletes).
 export const TABLES: TableName[] = [
   'profiles', 'programs', 'workout_templates', 'exercises', 'workout_sessions', 'exercise_sets',
-  'saved_foods', 'food_entries', 'weight_entries', 'body_measurements', 'progress_photos',
+  'saved_foods', 'food_entries', 'weight_entries', 'body_measurements',
   'daily_notes', 'reminder_preferences', 'weekly_checkins',
 ]
 export type Data = { [K in TableName]: Tables[K][] }

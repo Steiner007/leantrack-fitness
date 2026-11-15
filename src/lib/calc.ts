@@ -61,7 +61,7 @@ export interface Phase { n: 1 | 2 | 3; name: string; weeks: string; focus: strin
 export const PHASES: Phase[] = [
   { n: 1, name: 'Consistency', weeks: 'Weeks 1–4', focus: ['Establish nutrition tracking', 'Learn baseline working weights', 'Build training consistency', 'Target about 7,000–9,000 daily steps'] },
   { n: 2, name: 'Progression', weeks: 'Weeks 5–8', focus: ['Progressively add weight or reps', 'Monitor weekly average weight', 'Adjust calorie targets only when appropriate'] },
-  { n: 3, name: 'Maintain strength & reassess', weeks: 'Weeks 9–12', focus: ['Keep protein high', 'Continue progressive resistance training', 'Compare photos and waist measurements', 'Avoid extreme calorie restriction'] },
+  { n: 3, name: 'Maintain strength & reassess', weeks: 'Weeks 9–12', focus: ['Keep protein high', 'Continue progressive resistance training', 'Compare waist measurements', 'Avoid extreme calorie restriction'] },
 ]
 /** Splits any program length into three equal phases (4/4/4 for 12 weeks). */
 export function phaseFor(week: number, weeks = 12): Phase {

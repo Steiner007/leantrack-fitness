@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Bar as RBar, BarChart, CartesianGrid, ComposedChart, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { CalendarDays, ClipboardCheck, Columns2, Plus } from 'lucide-react'
-import { PhotoImg } from '../components/photo'
+import { CalendarDays, ClipboardCheck, Plus } from 'lucide-react'
 import { MeasureSheet, WeightSheet } from '../components/sheets'
 import { Btn, Card, Empty, Header, Stat, Tabs, Toggle, inputCls } from '../components/ui'
 import { lbToKg, lowerIsBetter, nutritionStats, personalBests, round, showWeight, sumMacros, weightSeries, weightTrend } from '../lib/calc'
@@ -11,7 +10,7 @@ import { datedSets } from '../lib/select'
 import { useStore } from '../lib/store'
 
 type Range = '7' | '30' | '84' | 'all'
-type Section = 'weight' | 'body' | 'training' | 'nutrition' | 'photos'
+type Section = 'weight' | 'body' | 'training' | 'nutrition'
 // One series hue plus a neutral; targets are labelled reference lines, so nothing relies on colour alone.
 const C = { series: '#4db8f0', raw: '#8a97a8', grid: '#273140', ref: '#eef2f6' }
 const axis = { stroke: C.grid, tick: { fill: '#8a97a8', fontSize: 11 }, tickLine: false }
@@ -24,7 +23,7 @@ export default function Progress() {
   const [section, setSection] = useState<Section>('weight')
   const to = today()
   const earliest = useMemo(() => {
-    const all = [...data.weight_entries, ...data.food_entries, ...data.workout_sessions, ...data.body_measurements, ...data.progress_photos].map(x => x.date)
+    const all = [...data.weight_entries, ...data.food_entries, ...data.workout_sessions, ...data.body_measurements].map(x => x.date)
     return all.length ? all.reduce((m, d) => (d < m ? d : m)) : to
   }, [data, to])
   const from = rng === 'all' ? earliest : addDays(to, -(Number(rng) - 1))
@@ -38,7 +37,7 @@ export default function Progress() {
         </div>} />
       <Tabs value={rng} onChange={setRng} options={[{ value: '7', label: '7 days' }, { value: '30', label: '30 days' }, { value: '84', label: '12 weeks' }, { value: 'all', label: 'All time' }]} />
       <div className="flex gap-1.5 overflow-x-auto my-3 -mx-4 px-4" role="tablist">
-        {(['weight', 'body', 'training', 'nutrition', 'photos'] as Section[]).map(s => (
+        {(['weight', 'body', 'training', 'nutrition'] as Section[]).map(s => (
           <button key={s} role="tab" aria-selected={section === s} onClick={() => setSection(s)}
             className={`shrink-0 min-h-[40px] px-4 rounded-full text-sm capitalize border ${section === s ? 'bg-ink text-bg border-ink font-semibold' : 'border-line text-mute'}`}>{s}</button>
         ))}
@@ -47,8 +46,7 @@ export default function Progress() {
       {section === 'body' && <BodySection from={from} to={to} />}
       {section === 'training' && <TrainingSection from={from} to={to} />}
       {section === 'nutrition' && <NutritionSection from={from} to={to} />}
-      {section === 'photos' && <PhotosSection from={from} to={to} />}
-      <p className="text-[11px] text-mute mt-4">LeanTrack does not estimate body-fat percentage — not from photos, weight or measurements. {profile.main_goal ? 'Use the photo comparisons and waist trend to judge visible change.' : ''}</p>
+      <p className="text-[11px] text-mute mt-4">LeanTrack does not estimate body-fat percentage. Use your waist trend alongside the scale to judge change.</p>
     </div>
   )
 }
@@ -306,33 +304,6 @@ function NutritionSection({ from, to }: { from: string; to: string }) {
         )}
         <p className="text-[11px] text-mute mt-2">Averages count only days with food logged; an untracked day is treated as unknown, not zero.</p>
       </Card>
-    </div>
-  )
-}
-
-function PhotosSection({ from, to }: { from: string; to: string }) {
-  const { data, profile } = useStore()
-  const nav = useNavigate()
-  const dates = [...new Set(data.progress_photos.filter(p => p.date >= from && p.date <= to).map(p => p.date))].sort().reverse()
-  return (
-    <div>
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <Btn onClick={() => nav('/photos')}><CalendarDays size={16} /> Photo calendar</Btn>
-        <Btn onClick={() => nav('/compare')}><Columns2 size={16} /> Before / after</Btn>
-      </div>
-      <h2 className="text-sm font-semibold mb-2">Timeline</h2>
-      {dates.length === 0 ? <Empty>No photos in this range. Add today's from the Home screen.</Empty> : dates.map(d => {
-        const ps = data.progress_photos.filter(p => p.date === d).sort((a, b) => ['front', 'side', 'back', 'extra'].indexOf(a.pose) - ['front', 'side', 'back', 'extra'].indexOf(b.pose))
-        const w = data.weight_entries.find(x => x.date === d)
-        return (
-          <button key={d} onClick={() => nav(`/photos?date=${d}`)} className="w-full text-left mb-3">
-            <div className="flex justify-between text-xs mb-1"><span className="font-medium">{fmt(d, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span><span className="text-mute tnum">{showWeight(w?.weight_lb, profile.weight_unit)}</span></div>
-            <div className="grid grid-cols-4 gap-1.5">
-              {ps.slice(0, 4).map(p => <div key={p.id} className="aspect-[3/4] rounded-lg overflow-hidden"><PhotoImg path={p.storage_path} alt={`${p.pose} photo ${fmt(d)}`} className="h-full w-full" /></div>)}
-            </div>
-          </button>
-        )
-      })}
     </div>
   )
 }

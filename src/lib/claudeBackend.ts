@@ -1,7 +1,7 @@
 /**
  * Backend for the version hosted as a Claude artifact. Rows live in the
  * artifact's document store under the viewer's private subtree
- * (data/users/<id>/...), photos in the artifact's asset store.
+ * (data/users/<id>/...).
  */
 import type { Backend } from './backend'
 import { TABLES, emptyData, type TableName } from './types'
@@ -15,7 +15,6 @@ interface Query {
 }
 interface DocRef { set(d: Record<string, unknown>): Promise<void>; delete(): Promise<void>; collection(p: string): Query & { doc(id: string): DocRef } }
 interface Db { doc(path: string): DocRef }
-interface Assets { upload(b: Blob, o?: { type?: string }): Promise<{ id: string; url: string }>; delete(id: string): Promise<unknown> }
 interface Downloads { save(r: { filename: string; data: Blob | string }): Promise<unknown> }
 interface User { id(): Promise<string | null> }
 type Claude = { use(name: string): Promise<unknown> }
@@ -50,7 +49,6 @@ export async function claudeBackend(): Promise<Backend | null> {
   if (!db || !uid) return null
   const root = db.doc(`data/users/${uid}/leantrack`)
   const col = (t: TableName) => root.collection(t)
-  const assets = () => c.use('assets') as Promise<Assets | null>
   const b: Backend = {
     mode: 'claude',
     userId: uid,
@@ -76,24 +74,7 @@ export async function claudeBackend(): Promise<Backend | null> {
     async remove(table, ids) {
       await pool(ids, id => call(() => col(table).doc(id).delete()))
     },
-    async uploadPhoto(_path, blob) {
-      const a = await assets()
-      if (!a) throw new Error('Photo storage is not available in this view. Open the app from your own Claude account.')
-      return (await call(() => a.upload(blob, { type: 'image/jpeg' }))).id
-    },
-    async photoUrl(path) { return '/_blob/' + path },
-    async photoBlob(path) {
-      const r = await fetch('/_blob/' + path)
-      if (!r.ok) throw new Error('Could not download photo')
-      return r.blob()
-    },
-    async removePhotos(paths) {
-      const a = await assets()
-      if (!a) throw new Error('Photo storage is not available in this view.')
-      for (const p of paths) await call(() => a.delete(p))
-    },
-    async deleteEverything(photoPaths) {
-      if (photoPaths.length) await b.removePhotos(photoPaths)
+    async deleteEverything() {
       const all = await b.loadAll()
       for (const t of [...TABLES].reverse()) await b.remove(t, (all[t] as { id: string }[]).map(r => r.id))
     },

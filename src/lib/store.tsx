@@ -1,20 +1,18 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { localBackend, supabase, supabaseBackend, supabaseConfigured, type Backend } from './backend'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { localBackend, type Backend } from './backend'
 import { ARTIFACT, claudeBackend } from './claudeBackend'
 import { buildSeed } from './seed'
 import { TABLES, emptyData, type Data, type Profile, type Program, type TableName, type Tables } from './types'
 
-type Phase = 'loading' | 'signed-out' | 'ready' | 'error'
+type Phase = 'loading' | 'ready' | 'error'
 interface Store {
   data: Data
   backend: Backend
   profile: Profile
   program: Program
-  email: string | null
   online: boolean
   save<T extends TableName>(table: T, rows: Tables[T] | Tables[T][]): Promise<void>
   remove(table: TableName, ids: string | string[]): Promise<void>
-  signOut(): Promise<void>
   /** Re-reads everything from the backend (re-seeding if it is now empty). */
   reload(): void
 }
@@ -36,20 +34,12 @@ export function useOnline() {
   return online
 }
 
-export function StoreProvider({ children, authScreen, recoveryScreen }: {
-  children: ReactNode
-  authScreen: ReactNode
-  recoveryScreen: (done: () => void) => ReactNode
-}) {
+export function StoreProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<Phase>('loading')
   const [backend, setBackend] = useState<Backend | null>(null)
-  const [email, setEmail] = useState<string | null>(null)
   const [data, setData] = useState<Data>(emptyData)
   const [error, setError] = useState('')
-  // True while the user is setting a new password from a reset email link.
-  const [recovering, setRecovering] = useState(() => /type=recovery/.test(window.location.hash))
   const online = useOnline()
-  const userRef = useRef<string | null>(null)
 
   const load = useCallback(async (b: Backend) => {
     setPhase('loading')
@@ -76,30 +66,13 @@ export function StoreProvider({ children, authScreen, recoveryScreen }: {
 
   useEffect(() => {
     if (ARTIFACT) { void claudeBackend().catch(() => null).then(b => load(b ?? localBackend())); return }
-    if (!supabaseConfigured || !supabase) { void load(localBackend()); return }
-    const apply = (userId: string | null, mail: string | null) => {
-      if (userId === userRef.current) return
-      userRef.current = userId
-      setEmail(mail)
-      if (userId) void load(supabaseBackend(userId))
-      else { setBackend(null); setData(emptyData()); setPhase('signed-out') }
-    }
-    void supabase.auth.getSession().then(({ data: s }) => {
-      if (userRef.current === null && !s.session) setPhase('signed-out')
-      else apply(s.session?.user.id ?? null, s.session?.user.email ?? null)
-    })
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') setRecovering(true)
-      // Defer: Supabase warns against calling its API synchronously inside this callback.
-      setTimeout(() => apply(session?.user.id ?? null, session?.user.email ?? null), 0)
-    })
-    return () => sub.subscription.unsubscribe()
+    void load(localBackend())
   }, [load])
 
   const store = useMemo<Store | null>(() => {
     if (!backend || phase !== 'ready' || !data.profiles[0]) return null
     return {
-      data, backend, email, online,
+      data, backend, online,
       profile: data.profiles[0],
       program: data.programs.find(p => p.is_active) ?? data.programs[0],
       async save(table, rows) {
@@ -113,21 +86,17 @@ export function StoreProvider({ children, authScreen, recoveryScreen }: {
         await backend.remove(table, list)
         setData(d => ({ ...d, [table]: (d[table] as { id: string }[]).filter(r => !list.includes(r.id)) }))
       },
-      async signOut() { await supabase?.auth.signOut() },
       reload() { void load(backend) },
     }
-  }, [backend, phase, data, email, online, load])
+  }, [backend, phase, data, online, load])
 
-  if (recovering && supabaseConfigured) return <>{recoveryScreen(() => setRecovering(false))}</>
-  if (phase === 'signed-out') return <>{authScreen}</>
   if (phase === 'error')
     return (
       <div className="min-h-full grid place-items-center p-6 text-center">
         <div>
-          <h1 className="text-xl font-semibold mb-2">{online ? "Couldn't load your data" : "You're offline"}</h1>
-          <p className="text-sm text-mute mb-4">{online ? error : 'LeanTrack needs a connection to load your data. Nothing has been lost.'}</p>
+          <h1 className="text-xl font-semibold mb-2">Couldn't load your data</h1>
+          <p className="text-sm text-mute mb-4">{error}</p>
           <button className="min-h-[44px] rounded-xl bg-volt text-black font-semibold px-6" onClick={() => backend && load(backend)}>Try again</button>
-          {supabaseConfigured && <button className="block mx-auto mt-3 text-sm text-mute" onClick={() => supabase?.auth.signOut()}>Sign out</button>}
         </div>
       </div>
     )
