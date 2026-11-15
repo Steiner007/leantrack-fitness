@@ -60,6 +60,16 @@ Never put the **service-role key** in `.env.local`, in Vercel variables for this
 
 Add a new numbered file in `supabase/migrations/` (for example `0002_add_something.sql`) and run it the same way. Don't edit a migration that has already been applied.
 
+## Deploy (GitHub Pages) — current setup
+
+`.github/workflows/pages.yml` runs the tests, builds the app for `/leantrack-fitness/`, and publishes it on every push to `main`.
+
+One-time setup: repo **Settings → Pages → Build and deployment → Source: GitHub Actions**. Then re-run the workflow from the **Actions** tab (or push any change). The site is at `https://steiner007.github.io/leantrack-fitness/`.
+
+With no Supabase secrets, this build stores everything (photos included) **on the phone only** (IndexedDB). Back up from Profile → Your data. Adding the home-screen icon in Safari keeps the data from being cleared by Safari's storage cleanup for websites. To switch to Supabase later, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as repository secrets (Settings → Secrets and variables → Actions) and add the Pages URL to Supabase's redirect URLs.
+
+GitHub Pages on a free account requires the repo to be public. No secrets or personal data are in the repo; your entries and photos never leave your phone.
+
 ## Deploy (Vercel)
 
 1. Push this repo to GitHub, then on [vercel.com](https://vercel.com): Add New → Project → import `leantrack-fitness`. The Vite preset is detected (build `npm run build`, output `dist`).

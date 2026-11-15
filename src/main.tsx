@@ -12,6 +12,6 @@ const start = decodeURIComponent(window.location.hash.slice(1))
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {ARTIFACT ? <MemoryRouter initialEntries={[start.startsWith('/') ? start : '/']}><App /></MemoryRouter> : <BrowserRouter><App /></BrowserRouter>}
+    {ARTIFACT ? <MemoryRouter initialEntries={[start.startsWith('/') ? start : '/']}><App /></MemoryRouter> : <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}><App /></BrowserRouter>}
   </React.StrictMode>,
 )

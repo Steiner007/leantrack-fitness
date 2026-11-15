@@ -205,6 +205,12 @@ export default function Profile() {
         <Btn full variant="danger" onClick={() => { setTyped(''); setConfirmDelete(true) }}><Trash2 size={16} /> Delete {backend.mode === 'supabase' ? 'account and all data' : 'all data'}</Btn>
       </Section>
 
+      {backend.mode === 'local' && (
+        <Section title="Where your data lives">
+          <p className="text-sm leading-relaxed">This version saves everything, photos included, on this phone only. Nothing goes to a server, so it won't appear on other devices and deleting the app or clearing Safari's website data erases it. Use "Data + photos" above now and then as a backup.</p>
+        </Section>
+      )}
+
       <Section title="Install on your phone">
         <p className="text-sm leading-relaxed">{ARTIFACT && 'This hosted version runs inside Claude and cannot be installed; the deployed version can. '}iPhone: open this site in Safari, tap Share, then "Add to Home Screen". Android: open it in Chrome, tap the menu, then "Install app".</p>
       </Section>

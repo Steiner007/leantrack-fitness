@@ -4,7 +4,7 @@ import { Btn, Field, inputCls } from '../components/ui'
 
 const Logo = () => (
   <div className="flex items-center gap-3 mb-8">
-    <img src="/icon.svg" alt="" className="h-12 w-12 rounded-2xl" />
+    <img src={import.meta.env.BASE_URL + 'icon.svg'} alt="" className="h-12 w-12 rounded-2xl" />
     <div>
       <div className="text-2xl font-bold tracking-tight">LeanTrack</div>
       <div className="text-xs text-mute">12-week recomposition tracker</div>
@@ -29,11 +29,11 @@ export function AuthScreen() {
         const { error } = await sb.auth.signInWithPassword({ email, password })
         if (error) throw error
       } else if (mode === 'up') {
-        const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } })
+        const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + import.meta.env.BASE_URL } })
         if (error) throw error
         if (!data.session) setMsg({ text: 'Check your email to confirm your account, then sign in.', ok: true })
       } else {
-        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + import.meta.env.BASE_URL })
         if (error) throw error
         setMsg({ text: 'If that address has an account, a reset link is on its way.', ok: true })
       }

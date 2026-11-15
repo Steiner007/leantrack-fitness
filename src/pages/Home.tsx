@@ -84,7 +84,7 @@ export default function Home() {
 
       {backend.mode === 'local' && (
         <p className="mb-3 rounded-xl border border-warn/40 bg-warn/10 text-warn text-xs px-3 py-2">
-          {ARTIFACT ? "Saved data isn't available in this view, so entries are kept only in this browser and may not last. Open the app from your own Claude account to save properly." : "Local mode: Supabase isn't configured, so data is stored only in this browser on this device."}
+          {ARTIFACT ? "Saved data isn't available in this view, so entries are kept only in this browser and may not last. Open the app from your own Claude account to save properly." : "Saved on this phone only. Back up from Profile → Your data."}
         </p>
       )}
 
