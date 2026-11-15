@@ -4,7 +4,7 @@ import { Check, Info, Minus, MoreVertical, Plus, Timer, Trophy, X } from 'lucide
 import { ask, Btn, Card, Empty, Field, Header, Num, Sheet, cx, inputCls, useRun, useToast } from '../components/ui'
 import { isPR, lowerIsBetter, personalBests, targetText } from '../lib/calc'
 import { fmt, fmtLong, today } from '../lib/dates'
-import { uid } from '../lib/seed'
+import { WEIGHT_STEP, isDumbbell, uid } from '../lib/seed'
 import { buildSession, buildSets, datedSets, exercisesFor, lastPerformance, sessionFor, setsFor, templateFor } from '../lib/select'
 import { useStore } from '../lib/store'
 import type { SetRow, Unit } from '../lib/types'
@@ -100,6 +100,12 @@ export default function SessionPage() {
   }
   const done = sets.filter(s => s.completed).length
   const saveSet = (s: SetRow, patch: Partial<SetRow>) => run(() => save('exercise_sets', { ...s, ...patch }))
+  /** Lighter/Heavier: shifts every set of this exercise that isn't checked off yet. */
+  const nudge = (g: (typeof groups)[number], by: number) => {
+    const open = g.rows.filter(r => !r.completed)
+    if (!open.length) return toast('All sets are done. Change a set directly to edit it.', 'err')
+    return run(() => save('exercise_sets', open.map(r => ({ ...r, weight_lb: Math.max(0, (r.weight_lb ?? 0) + by) }))))
+  }
 
   async function toggle(s: SetRow) {
     if (!s.completed && s.reps == null) return toast(s.unit === 'reps' ? 'Enter the reps you did first.' : 'Enter the time you did first.', 'err')
@@ -153,6 +159,9 @@ export default function SessionPage() {
             {info === g.name && how && <p className="text-xs text-ink/80 bg-raised rounded-lg p-2.5 mt-2">{how}</p>}
             <div className="text-xs text-mute mt-2 space-y-0.5 tnum">
               <div>Last time: {last ? `${fmt(last.date)} — ${last.sets.map(s => (unit === 'reps' ? `${s.weight_lb ?? 0}×${s.reps}` : `${s.reps} ${unit}`)).join(', ')}` : 'no earlier record'}</div>
+              {!last && unit === 'reps' && g.rows[0].weight_lb != null && (
+                <div className="text-sky">Suggested starting weight: {g.rows[0].weight_lb} lb{isDumbbell(g.name) ? ' per dumbbell' : lowerIsBetter(g.name) ? ' of assistance' : ''}. Too light? Tap Heavier.</div>
+              )}
               {unit === 'reps' && <div>Personal best: {best ? `${best.weight_lb} lb × ${best.reps} (${fmt(best.date)})${lowerIsBetter(g.name) ? ' · least assistance' : ''}` : 'set after your first logged session'}</div>}
             </div>
 
@@ -184,6 +193,16 @@ export default function SessionPage() {
                 </div>
               ))}
             </div>
+            {unit === 'reps' && (() => {
+              // For assisted pull-ups, less assistance is harder.
+              const inv = lowerIsBetter(g.name) ? -1 : 1
+              return (
+                <div className="flex gap-2 mt-2">
+                  <button aria-label={`${g.name} lighter`} onClick={() => nudge(g, -WEIGHT_STEP * inv)} className="min-h-[40px] flex-1 rounded-lg bg-raised text-xs inline-flex items-center justify-center gap-1"><Minus size={14} /> Lighter {WEIGHT_STEP} lb</button>
+                  <button aria-label={`${g.name} heavier`} onClick={() => nudge(g, WEIGHT_STEP * inv)} className="min-h-[40px] flex-1 rounded-lg bg-raised text-xs text-volt inline-flex items-center justify-center gap-1"><Plus size={14} /> Heavier {WEIGHT_STEP} lb</button>
+                </div>
+              )
+            })()}
             <div className="flex gap-2 mt-2">
               <button onClick={() => addSet(g)} className="min-h-[40px] flex-1 rounded-lg bg-raised text-xs text-mute inline-flex items-center justify-center gap-1"><Plus size={14} /> Set</button>
               <button onClick={() => removeSet(g)} disabled={g.rows.length <= 1} className="min-h-[40px] flex-1 rounded-lg bg-raised text-xs text-mute inline-flex items-center justify-center gap-1 disabled:opacity-40"><Minus size={14} /> Set</button>

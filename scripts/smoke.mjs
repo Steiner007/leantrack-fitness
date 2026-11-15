@@ -170,6 +170,21 @@ async function logWorkout(date, weight, reps) {
   await toast('Workout saved')
 }
 
+await step('workout: first session suggests starting weights and Heavier/Lighter adjust them', async () => {
+  await go(`/session/${PREV_MON}`)
+  await page.getByRole('button', { name: 'Start Workout' }).click()
+  await text('Suggested starting weight: 100 lb')
+  assert((await page.getByLabel('Lat pulldown set 3 weight').inputValue()) === '110', 'lat pulldown should start at 110')
+  await page.getByRole('button', { name: 'Lat pulldown heavier' }).click()
+  await page.waitForFunction(() => document.querySelector('input[aria-label="Lat pulldown set 3 weight"]').value === '115')
+  await page.getByRole('button', { name: 'Lat pulldown lighter' }).click()
+  await page.waitForFunction(() => document.querySelector('input[aria-label="Lat pulldown set 1 weight"]').value === '110')
+  // Assisted pull-ups live on Thursday; dumbbell hint wording checked on Upper B is covered by unit tests.
+  await page.getByRole('button', { name: 'Delete this workout' }).click()
+  await confirmDlg('Delete')
+  await toast('Workout deleted')
+})
+
 await step('workout: sets, reps and weights are saved and survive reload', async () => {
   await logWorkout(PREV_MON, 100, 10)
   await go(`/session/${PREV_MON}`)

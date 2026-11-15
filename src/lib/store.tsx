@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { localBackend, type Backend } from './backend'
 import { ARTIFACT, claudeBackend } from './claudeBackend'
-import { buildSeed } from './seed'
+import { STARTING_WEIGHTS, buildSeed } from './seed'
 import { TABLES, emptyData, type Data, type Profile, type Program, type TableName, type Tables } from './types'
 
 type Phase = 'loading' | 'ready' | 'error'
@@ -53,6 +53,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // The profile is written last, so its presence means seeding finished.
         for (const t of [...TABLES.filter(x => x !== 'profiles'), 'profiles' as const]) await b.upsert(t, seed[t])
         d = await b.loadAll()
+      }
+      // Installs from before starting weights existed: fill them in once (only where the field was never set).
+      const missing = d.exercises.filter(e => e.start_weight_lb === undefined && e.unit === 'reps' && STARTING_WEIGHTS[e.name] != null)
+      if (missing.length) {
+        const filled = missing.map(e => ({ ...e, start_weight_lb: STARTING_WEIGHTS[e.name] }))
+        try {
+          await b.upsert('exercises', filled)
+          d = { ...d, exercises: d.exercises.map(e => filled.find(f => f.id === e.id) ?? e) }
+        } catch { /* not critical: workouts still fall back to the built-in suggestion */ }
       }
       setData(d)
       setBackend(b)

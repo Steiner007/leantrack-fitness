@@ -15,6 +15,23 @@ export const DEFAULT_PROFILE: Omit<Profile, 'id'> = {
   water_target_oz: 96, step_target: 8000, add_exercise_calories: false,
 }
 
+/**
+ * Starting weights for a 5'9", ~175 lb male with intermediate, slightly-above-average strength,
+ * for the rep ranges in this routine. They're estimates: machine stacks differ by brand, so the
+ * first session is for checking them. Dumbbell numbers are per dumbbell; assisted pull-ups is the
+ * assistance amount (more = easier). Bodyweight and timed exercises have none.
+ */
+export const STARTING_WEIGHTS: Record<string, number> = {
+  'Chest press machine': 100, 'Lat pulldown': 110, 'Seated cable row': 100, 'Shoulder press': 60, 'Cable crunch': 60,
+  'Leg press': 200, 'Dumbbell Romanian deadlift': 35, 'Seated leg curl': 70, 'Calf raise': 120,
+  'Cable woodchops': 25,
+  'Incline dumbbell press': 40, 'Assisted pull-ups': 70, 'Cable row': 100, 'Dumbbell lateral raise': 15, 'Ab crunch machine': 60,
+  'Smith machine squat': 95, 'Leg curl': 70, 'Leg extension': 80,
+}
+/** Weight steps for the Lighter/Heavier buttons. */
+export const WEIGHT_STEP = 5
+export const isDumbbell = (name: string) => /dumbbell/i.test(name)
+
 // [name, sets, repLow, repHigh, unit, perSide, optional, instructions]
 type Ex = [string, number, number | null, number | null, Unit, boolean, boolean, string]
 const x = (name: string, sets: number, lo: number | null, hi: number | null, how: string, unit: Unit = 'reps', perSide = false, optional = false): Ex =>
@@ -88,7 +105,7 @@ export function buildSeed(): Data {
     const t: Template = { id: uid(), program_id: program.id, weekday: day.weekday, name: day.name, kind: day.kind, archived: false }
     d.workout_templates.push(t)
     day.ex.forEach(([name, sets, rep_low, rep_high, unit, per_side, optional, instructions], position) => {
-      const e: Exercise = { id: uid(), template_id: t.id, name, sets, rep_low, rep_high, unit, per_side, optional, instructions, position, archived: false }
+      const e: Exercise = { id: uid(), template_id: t.id, name, sets, rep_low, rep_high, unit, per_side, optional, instructions, position, archived: false, start_weight_lb: unit === 'reps' ? STARTING_WEIGHTS[name] ?? null : null }
       d.exercises.push(e)
     })
   }

@@ -19,6 +19,8 @@ export interface Template extends Base { program_id: string | null; weekday: num
 export interface Exercise extends Base {
   template_id: string; name: string; sets: number; rep_low: number | null; rep_high: number | null
   unit: Unit; per_side: boolean; optional: boolean; instructions: string | null; position: number; archived: boolean
+  /** Suggested weight for the first session, before any history exists (lb; per dumbbell for dumbbell lifts, assistance for assisted pull-ups). */
+  start_weight_lb?: number | null
 }
 export interface Session extends Base {
   date: string; template_id: string | null; name: string; kind: Kind

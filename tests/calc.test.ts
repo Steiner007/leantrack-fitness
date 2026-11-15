@@ -4,7 +4,8 @@ import {
   targetText, weekCompletion, weightSeries, weightTrend, workoutStreak,
 } from '../src/lib/calc'
 import { addDays, diffDays, parse, range, toStr, weekStart, weekday } from '../src/lib/dates'
-import { buildSeed } from '../src/lib/seed'
+import { STARTING_WEIGHTS, buildSeed } from '../src/lib/seed'
+import { buildSets } from '../src/lib/select'
 import type { FoodEntry, WeightEntry } from '../src/lib/types'
 
 const w = (date: string, weight_lb: number): WeightEntry => ({ id: date, date, weight_lb })
@@ -135,5 +136,28 @@ describe('training', () => {
     expect(isPR({ exercise_name: 'Leg press', weight_lb: 220, reps: 8, completed: true }, best)).toBe(false)
     expect(isPR({ exercise_name: 'Leg press', weight_lb: 230, reps: 8, completed: false }, best)).toBe(false)
     expect(isPR({ exercise_name: 'Leg press', weight_lb: 230, reps: 8, completed: true }, undefined)).toBe(false)
+  })
+})
+
+describe('starting weights', () => {
+  const seed = buildSeed()
+  const ex = (name: string) => seed.exercises.find(e => e.name === name)!
+  it('gives every weighted exercise in the routine a starting weight, and none to timed ones', () => {
+    for (const e of seed.exercises) {
+      if (e.unit !== 'reps') expect(e.start_weight_lb).toBeNull()
+    }
+    expect(ex('Chest press machine').start_weight_lb).toBe(100)
+    expect(ex('Incline dumbbell press').start_weight_lb).toBe(40)
+    expect(ex("Captain's chair knee raises").start_weight_lb).toBeNull()
+  })
+  it('uses the starting weight only when there is no history', () => {
+    const fresh = buildSets(seed, 's1', '2026-11-16', ex('Lat pulldown'), 0)
+    expect(fresh.map(r => r.weight_lb)).toEqual([110, 110, 110])
+    const withHistory = { ...seed,
+      workout_sessions: [{ id: 'old', date: '2026-11-09', template_id: null, name: 'x', kind: 'lifting' as const, started_at: '', completed_at: 'x', notes: null, exercise_notes: {} }],
+      exercise_sets: [{ id: 'a', session_id: 'old', exercise_id: null, exercise_name: 'Lat pulldown', position: 0, set_number: 1, target: '', unit: 'reps' as const, weight_lb: 125, reps: 10, completed: true }] }
+    expect(buildSets(withHistory, 's2', '2026-11-16', ex('Lat pulldown'), 0).map(r => r.weight_lb)).toEqual([125, 125, 125])
+    // An exercise added by name later still gets the suggestion.
+    expect(buildSets(seed, 's3', '2026-11-16', { name: 'Leg press', sets: 1, rep_low: 10, rep_high: 12, unit: 'reps', per_side: false }, 0)[0].weight_lb).toBe(STARTING_WEIGHTS['Leg press'])
   })
 })

@@ -66,6 +66,7 @@ export default function EditSchedule() {
                   <select aria-label="Unit" className={small} value={e.unit} onChange={ev => saveE(e, { unit: ev.target.value as Unit })}>
                     <option value="reps">reps</option><option value="sec">sec</option><option value="min">min</option>
                   </select>
+                  {e.unit === 'reps' && <><Num label={`Starting weight for ${e.name}`} value={e.start_weight_lb ?? null} placeholder="lb" onCommit={n => saveE(e, { start_weight_lb: n })} className={small + ' w-14 text-center'} /> lb</>}
                   <label className="flex items-center gap-1 ml-auto"><input type="checkbox" checked={e.per_side} onChange={ev => saveE(e, { per_side: ev.target.checked })} className="h-4 w-4 accent-[#b9f04a]" /> per side</label>
                 </div>
               </div>

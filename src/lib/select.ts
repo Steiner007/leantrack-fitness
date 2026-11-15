@@ -1,6 +1,6 @@
 import { sumMacros, targetText } from './calc'
 import { weekday } from './dates'
-import { uid } from './seed'
+import { STARTING_WEIGHTS, uid } from './seed'
 import type { Data, DailyNote, Exercise, Session, SetRow, Template } from './types'
 
 export const templateFor = (d: Data, date: string): Template | undefined =>
@@ -44,7 +44,9 @@ export function buildSession(d: Data, date: string): { session: Session; sets: S
   return { session, sets }
 }
 export function buildSets(d: Data, sessionId: string, date: string,
-  e: Pick<Exercise, 'name' | 'sets' | 'rep_low' | 'rep_high' | 'unit' | 'per_side'> & { id?: string }, position: number): SetRow[] {
+  e: Pick<Exercise, 'name' | 'sets' | 'rep_low' | 'rep_high' | 'unit' | 'per_side'> & { id?: string; start_weight_lb?: number | null }, position: number): SetRow[] {
+  // No history yet: use the exercise's starting weight, or the built-in suggestion for a known exercise name.
+  const start = e.unit === 'reps' ? e.start_weight_lb ?? STARTING_WEIGHTS[e.name] ?? null : null
   const last = lastPerformance(d, e.name, date)
   return Array.from({ length: e.sets }, (_, i) => {
     const prev = last?.sets[i] ?? last?.sets[last.sets.length - 1]
@@ -52,7 +54,7 @@ export function buildSets(d: Data, sessionId: string, date: string,
       id: uid(), session_id: sessionId, exercise_id: e.id ?? null, exercise_name: e.name, position, set_number: i + 1,
       target: targetText(e), unit: e.unit,
       // Pre-fill from last time so logging is one tap when nothing changed.
-      weight_lb: prev?.weight_lb ?? null, reps: prev?.reps ?? (e.unit === 'reps' ? null : e.rep_low), completed: false,
+      weight_lb: prev ? prev.weight_lb : start, reps: prev?.reps ?? (e.unit === 'reps' ? null : e.rep_low), completed: false,
     }
   })
 }
